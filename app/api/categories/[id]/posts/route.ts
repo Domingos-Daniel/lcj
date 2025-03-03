@@ -24,7 +24,12 @@ export async function GET(
     let categories: string[] = []
     const categoriesParam = url.searchParams.get('categories')
     if (categoriesParam) {
-      categories = categoriesParam.split(',').filter(Boolean)
+      try {
+        categories = JSON.parse(categoriesParam);
+      } catch (e) {
+        // If parsing fails, treat as comma-separated list
+        categories = categoriesParam.split(',').filter(Boolean);
+      }
     }
     
     // Log detalhado dos parâmetros recebidos
@@ -46,7 +51,18 @@ export async function GET(
       sort,
       categories,
       subcategory
-    })
+    }).catch(error => {
+      console.error(`Error in getCategoryPosts:`, error);
+      // Return fallback data
+      return {
+        posts: [],
+        totalPages: 0,
+        category: { id: categoryId, name: `Category ${categoryId}` },
+        categories: [],
+        subcategories: [],
+        totalResults: 0
+      };
+    });
     
     // Log de resposta
     console.log('📡 API - Resposta:', { 

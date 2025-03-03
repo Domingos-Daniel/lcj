@@ -199,31 +199,109 @@ export async function getCategoryPosts(categoryId: number, options: {
   subcategory?: string
 }) {
   try {
-    // Verificar se precisa atualizar
-    if (isDatabaseStale()) {
-      updateDatabase().catch(err => console.error('Erro na atualização automática:', err));
+    // Explicitly convert categoryId to number if it's a string
+    if (typeof categoryId === 'string') {
+      categoryId = parseInt(categoryId, 10);
     }
     
-    // Ler banco de dados
-    const db = initializeDatabase();
+    console.log(`🔍 Getting posts for category ${categoryId}, type: ${typeof categoryId}`);
+    console.log(`Options:`, JSON.stringify(options));
     
-    // Verificar se a categoria existe
+    // Read database
+    const db = initializeDatabase();
+
+    // Log available categories to help debugging
+    console.log(`Available categories: ${Object.keys(db.categories).join(', ')}`);
+    
+    // Check if category exists
     if (!db.categories[categoryId]) {
-      const categoryData = await fetchCategoryOnDemand(categoryId);
-      if (!categoryData) {
-        return {
-          posts: [],
-          totalPages: 0,
-          category: null,
-          categories: [],
-          subcategories: [],
-          totalResults: 0
-        };
+      console.log(`⚠️ Category ${categoryId} not found in database.`);
+      
+      // Try looking up by category id as string
+      const stringId = String(categoryId);
+      if (db.categories[stringId]) {
+        console.log(`✅ Found category using string ID: ${stringId}`);
+        // Continue with the string ID
+        categoryId = stringId as any;
+      } else {
+        // Try to fetch the category on demand
+        console.log(`Attempting to fetch category ${categoryId} on demand...`);
+        try {
+          const categoryData = await fetchCategoryOnDemand(categoryId);
+          if (!categoryData) {
+            console.log(`❌ Could not fetch category ${categoryId} on demand.`);
+            return {
+              posts: [],
+              totalPages: 0,
+              category: null,
+              categories: getAllAvailableCategories(db),
+              subcategories: [],
+              totalResults: 0
+            };
+          }
+        } catch (fetchError) {
+          console.error(`Error fetching category ${categoryId}:`, fetchError);
+          // Return empty result but still include available categories
+          return {
+            posts: [],
+            totalPages: 0,
+            category: null,
+            categories: getAllAvailableCategories(db),
+            subcategories: [],
+            totalResults: 0
+          };
+        }
+      }
+    }
+
+    // Log category structure
+    if (db.categories[categoryId]) {
+      console.log(`Category ${categoryId} info:`, {
+        name: db.categories[categoryId].info?.name,
+        postCount: db.categories[categoryId].posts?.length,
+        hasParent: Boolean(db.categories[categoryId].info?.parent),
+        parentId: db.categories[categoryId].info?.parent
+      });
+    }
+
+    // Get posts for this category - be defensive about possible null values
+    let posts = db.categories[categoryId]?.posts || [];
+    console.log(`Found ${posts.length} posts for category ${categoryId}`);
+    
+    // If no posts found, try other approaches
+    if (posts.length === 0) {
+      console.log(`Looking for posts in allPosts array that belong to category ${categoryId}`);
+      
+      // Try finding posts in db.allPosts that belong to this category
+      if (db.allPosts && Array.isArray(db.allPosts)) {
+        posts = db.allPosts.filter(post => {
+          // Check if post belongs to this category
+          if (post.categories && Array.isArray(post.categories)) {
+            return post.categories.includes(categoryId) || post.categories.includes(String(categoryId));
+          }
+          if (post.category) {
+            return post.category === categoryId || post.category === String(categoryId);
+          }
+          return false;
+        });
+        console.log(`Found ${posts.length} posts in allPosts for category ${categoryId}`);
       }
     }
     
-    // Obter todos os posts da categoria
-    let posts = [...db.categories[categoryId].posts];
+    // Automatically include subcategory posts unless specifically filtered
+    if (!options.subcategory) {
+      // Find all subcategories of this category
+      const subcategories = getDirectSubcategories(db, categoryId);
+      console.log(`Found ${subcategories.length} direct subcategories for category ${categoryId}`);
+      
+      // Add posts from each subcategory
+      subcategories.forEach(subCat => {
+        if (db.categories[subCat.id] && db.categories[subCat.id].posts) {
+          console.log(`Adding ${db.categories[subCat.id].posts.length} posts from subcategory ${subCat.id}`);
+          posts = [...posts, ...db.categories[subCat.id].posts];
+        }
+      });
+    }
     
     // Filtrar por categorias selecionadas se houver alguma
     if (options.categories && options.categories.length > 0) {
@@ -567,8 +645,16 @@ export async function getCategoryPosts(categoryId: number, options: {
       return enhancedPost;
     });
 
-    // Extrair categorias associadas
-    const associatedCategories = extractAssociatedCategories(db, categoryId);
+    // At the end of the function, log results
+    console.log(`✅ Returning ${pageItems.length} posts for category ${categoryId}`);
+    if (pageItems.length > 0) {
+      console.log(`Sample post categories:`, {
+        id: pageItems[0].id,
+        title: pageItems[0].title,
+        categoryName: pageItems[0].categoryName,
+        categories: pageItems[0].categories
+      });
+    }
 
     return {
       posts: pageItems,
@@ -1345,7 +1431,9 @@ export async function updateDatabaseIfChanged(): Promise<boolean> {
                 id: categoryId,
                 name: category.name || `Categoria ${categoryId}`,
                 description: category.description || "",
-                slug: category.slug || ""
+                slug: category.slug || "",
+                parent: category.parent || 0, // Add parent ID
+                count: category.count || 0    // Add post count
               },
               posts: []
             };
@@ -1355,7 +1443,9 @@ export async function updateDatabaseIfChanged(): Promise<boolean> {
               id: categoryId,
               name: category.name || `Categoria ${categoryId}`,
               description: category.description || "",
-              slug: category.slug || ""
+              slug: category.slug || "",
+              parent: category.parent || 0,   // Add parent ID
+              count: category.count || 0      // Add post count
             };
           }
         });
@@ -1466,5 +1556,122 @@ export async function checkDatabaseStructure() {
       error: error.message,
       stack: error.stack
     };
+  }
+}
+
+// Add this helper function to get direct subcategories
+function getDirectSubcategories(db, parentId) {
+  const subcategories = [];
+  
+  if (db.categories) {
+    // Convert parentId to string for consistent comparison
+    const parentIdStr = String(parentId);
+    
+    Object.keys(db.categories).forEach(catId => {
+      if (db.categories[catId] && db.categories[catId].info) {
+        const category = db.categories[catId].info;
+        
+        // Check if this category has the specified parent
+        if (category.parent && String(category.parent) === parentIdStr) {
+          subcategories.push({
+            id: catId,
+            name: category.name,
+            parent: category.parent,
+            slug: category.slug
+          });
+        }
+      }
+    });
+  }
+  
+  return subcategories;
+}
+
+// Replace the existing getCategoryDisplayName function in your component:
+function getCategoryName(db, categoryId) {
+  if (!categoryId) return null;
+  
+  const categoryIdStr = String(categoryId);
+  
+  // Direct lookup in categories dictionary
+  if (db.categories && db.categories[categoryIdStr] && db.categories[categoryIdStr].info) {
+    return db.categories[categoryIdStr].info.name;
+  }
+  
+  // Search through all categories to find by ID
+  if (db.categories) {
+    for (const catId in db.categories) {
+      if (db.categories[catId].info && String(db.categories[catId].info.id) === categoryIdStr) {
+        return db.categories[catId].info.name;
+      }
+    }
+  }
+  
+  // Fallback
+  return `Categoria ${categoryId}`;
+}
+
+// Add this function inside getCategoryPosts to build the category name map
+function buildCategoryNameMap(db) {
+  const nameMap = {};
+  
+  if (db.categories) {
+    for (const catId in db.categories) {
+      if (db.categories[catId] && db.categories[catId].info) {
+        const category = db.categories[catId].info;
+        nameMap[catId] = category.name;
+        
+        // Also map by actual ID (which might be different from key)
+        if (category.id && String(category.id) !== catId) {
+          nameMap[category.id] = category.name;
+        }
+      }
+    }
+  }
+  
+  return nameMap;
+}
+
+// Add this function to debug category issues
+export async function debugCategory(categoryId: number) {
+  try {
+    const db = initializeDatabase();
+    console.log(`🔍 Debugging category ${categoryId}`);
+    
+    // Check if category exists
+    if (!db.categories[categoryId]) {
+      console.log(`⚠️ Category ${categoryId} not found in database`);
+      console.log(`Available categories: ${Object.keys(db.categories).join(', ')}`);
+      return {
+        exists: false,
+        availableCategories: Object.keys(db.categories),
+        error: "Category not found"
+      };
+    }
+    
+    // Check if category has posts
+    const posts = db.categories[categoryId].posts || [];
+    console.log(`Found ${posts.length} posts for category ${categoryId}`);
+    
+    // Check for subcategories
+    const subcategories = getDirectSubcategories(db, categoryId);
+    console.log(`Found ${subcategories.length} subcategories for category ${categoryId}`);
+    
+    // Sample posts if available
+    const samplePosts = posts.slice(0, 2).map(p => ({ 
+      id: p.id, 
+      title: typeof p.title === 'object' ? p.title.rendered : p.title
+    }));
+    
+    return {
+      exists: true,
+      postsCount: posts.length,
+      subcategories: subcategories,
+      categoryName: db.categories[categoryId].info.name,
+      samplePosts
+    };
+  } catch (error) {
+    console.error(`Error debugging category ${categoryId}:`, error);
+    return { exists: false, error: error.message };
   }
 }
