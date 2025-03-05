@@ -4,15 +4,18 @@ import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 
 interface ArchivesHeaderProps {
-  category: {
-    name: string
-    description: string
-  } | null
-  searchQuery: string
+  category: any
   onSearch: (query: string) => void
+  searchQuery: string
+  searchId?: string // New prop for tutorial
 }
 
-export function ArchivesHeader({ category, searchQuery, onSearch }: ArchivesHeaderProps) {
+export function ArchivesHeader({ 
+  category, 
+  onSearch, 
+  searchQuery,
+  searchId = "search-field" // Default value
+}: ArchivesHeaderProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -25,14 +28,18 @@ export function ArchivesHeader({ category, searchQuery, onSearch }: ArchivesHead
           </p>
         )}
       </div>
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Pesquisar documentos..."
-          value={searchQuery}
-          onChange={(e) => onSearch(e.target.value)}
-          className="pl-10"
-        />
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            id={searchId} // Use the ID here
+            type="search"
+            placeholder="Pesquisar documentos..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => onSearch(e.target.value)}
+          />
+        </div>
       </div>
     </div>
   )

@@ -101,7 +101,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
         });
         
         setCategories(categoryMap);
-        console.log('✅ Fetched categories:', Object.keys(categoryMap).length);
+        //console.log('✅ Fetched categories:', Object.keys(categoryMap).length);
       } catch (error) {
         console.error('❌ Error fetching categories:', error);
         // Fallback to direct WordPress API call
@@ -116,7 +116,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
           });
           
           setCategories(fallbackMap);
-          console.log('✅ Fallback successful, fetched:', Object.keys(fallbackMap).length);
+          //console.log('✅ Fallback successful, fetched:', Object.keys(fallbackMap).length);
         } catch (fallbackError) {
           console.error('❌ Fallback also failed:', fallbackError);
           // Ultimate fallback to hardcoded categories
@@ -138,12 +138,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
   // Updated function to get category name dynamically with better debugging
   function getCategoryDisplayName(archive: Archive): string {
     // Log the current state for debugging
-    console.log(`Getting category for archive ID ${archive.id}:`, {
-      categories: archive.categories?.length || 0,
-      categoryProp: archive.category || 'none',
-      categoryName: archive.categoryName || 'none',
-      categoriesLoaded: Object.keys(categories).length
-    });
+    
     
     // Check categories array first
     if (Array.isArray(archive.categories) && archive.categories.length > 0) {
@@ -178,18 +173,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
   // Debug function remains the same
   function debugArchiveObject(archive: any) {
     // Extract and log all possible content fields
-    console.log("Archive content fields:", {
-      id: archive.id,
-      title: archive.title,
-      content: typeof archive.content === 'object' ? "[object]" : typeof archive.content,
-      contentRendered: archive.content?.rendered ? "exists" : "missing",
-      excerpt: typeof archive.excerpt === 'object' ? "[object]" : typeof archive.excerpt,
-      excerptRendered: archive.excerpt?.rendered ? "exists" : "missing",
-      plainExcerpt: archive.plainExcerpt ? "exists" : "missing", 
-      description: archive.description ? "exists" : "missing",
-      date: archive.date,
-      formattedDate: archive.formattedDate,
-    });
+    
   }
 
   // The rest of your component remains the same
@@ -266,12 +250,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
           // Extract excerpt with fallbacks
           const excerpt = (() => {
             // Log all possible excerpt sources for debugging
-            console.log("Excerpt sources:", {
-              plainExcerpt: archive.plainExcerpt?.substring(0, 20),
-              excerpt: archive.excerpt,
-              excerptRendered: archive.excerpt?.rendered?.substring(0, 20),
-              content: archive.content?.rendered?.substring(0, 20)
-            });
+            //debugArchiveObject(archive);
             
             // Try all possible sources
             if (archive.plainExcerpt) {
@@ -388,12 +367,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
         // Extract excerpt with fallbacks
         const excerpt = (() => {
           // Log all possible excerpt sources for debugging
-          console.log("Excerpt sources:", {
-            plainExcerpt: archive.plainExcerpt?.substring(0, 20),
-            excerpt: archive.excerpt,
-            excerptRendered: archive.excerpt?.rendered?.substring(0, 20),
-            content: archive.content?.rendered?.substring(0, 20)
-          });
+          
           
           // Try all possible sources
           if (archive.plainExcerpt) {

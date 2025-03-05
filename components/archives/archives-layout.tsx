@@ -7,12 +7,16 @@ import { ArchivesHeader } from "./archives-header"
 import { Pagination } from "@/components/ui/pagination"
 import { useArchives } from "@/hooks/use-archives"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Grid2X2, List } from "lucide-react"
+import { Grid2X2, List, Filter, Grid } from "lucide-react"
+// Fix the incorrect import
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 export function ArchivesLayout({ categoryId }: { categoryId: string }) {
   const [currentPage, setCurrentPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [view, setView] = useState<"grid" | "list">("grid")
+  const [showFilters, setShowFilters] = useState(false)
   
   // Estado inicial para filtros - com valores claros
   const [filters, setFilters] = useState({
@@ -43,20 +47,6 @@ export function ArchivesLayout({ categoryId }: { categoryId: string }) {
     filters,
   })
   
-  // Log quando os dados são carregados
-  useEffect(() => {
-    if (!isLoading) {
-      //console.log('🔄 ArchivesLayout: Dados carregados:', {
-      //  archivesCount: archives.length,
-      //  totalPages,
-      //  totalResults,
-      //  category,
-      //  categoriesCount: categories.length,
-      //  subcategoriesCount: subcategories.length
-      //});
-    }
-  }, [archives, totalPages, isLoading, error]);
-  
   // Quando os filtros mudarem, volte para a primeira página
   useEffect(() => {
     setCurrentPage(1)
@@ -64,7 +54,6 @@ export function ArchivesLayout({ categoryId }: { categoryId: string }) {
 
   // Função para redefinir tudo
   const handleReset = () => {
-    //console.log('🔄 ArchivesLayout: Resetando todos os filtros');
     setSearchQuery("")
     setCurrentPage(1)
     // Garantir que os valores padrão sejam claros e consistentes
@@ -78,7 +67,6 @@ export function ArchivesLayout({ categoryId }: { categoryId: string }) {
 
   // Processa mudanças nos filtros
   const handleFilterChange = (newFilters: typeof filters) => {
-    //console.log('🔄 ArchivesLayout: Mudança nos filtros:', newFilters);
     setFilters(newFilters);
   }
 
@@ -86,19 +74,27 @@ export function ArchivesLayout({ categoryId }: { categoryId: string }) {
     <div className="container py-8 space-y-8">
       <ArchivesHeader 
         category={category}
-        onSearch={setSearchQuery}
+        onSearch={(query) => {
+          // Add id to the search field in ArchivesHeader
+          document.getElementById('search-field')?.focus();
+          setSearchQuery(query);
+        }}
         searchQuery={searchQuery}
+        searchId="search-field" // Pass this prop to ArchivesHeader
       />
       
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1">
-          <ArchivesFilter 
-            filters={filters}
-            onChange={handleFilterChange}
-            categories={categories}
-            mainCategory={category}
-            onReset={handleReset}
-          />
+          {/* Add id to the filter component */}
+          <div id="filters-button">
+            <ArchivesFilter 
+              filters={filters}
+              onChange={handleFilterChange}
+              categories={categories}
+              mainCategory={category}
+              onReset={handleReset}
+            />
+          </div>
         </aside>
         
         <main className="lg:col-span-3 space-y-6">
@@ -114,7 +110,7 @@ export function ArchivesLayout({ categoryId }: { categoryId: string }) {
               )}
             </div>
             
-            <Tabs defaultValue="grid" value={view} onValueChange={(v) => setView(v as "grid" | "list")}>
+            <Tabs id="view-toggle" defaultValue="grid" value={view} onValueChange={(v) => setView(v as "grid" | "list")}>
               <TabsList className="grid w-[120px] grid-cols-2">
                 <TabsTrigger value="grid">
                   <Grid2X2 className="h-4 w-4" />
@@ -133,11 +129,13 @@ export function ArchivesLayout({ categoryId }: { categoryId: string }) {
           />
           
           {!isLoading && totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+            <div id="pagination" className="flex items-center justify-center mt-6">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
           )}
         </main>
       </div>
