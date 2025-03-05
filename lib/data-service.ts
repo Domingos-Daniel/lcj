@@ -2,12 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import axios from 'axios';
 import { fetchPosts, fetchCategoryPosts } from '@/utils/api'
-// Removi fetchAllCategoryPosts da importação acima
 
 const DATABASE_DIR = path.join(process.cwd(), 'data')
 const DATABASE_FILE = path.join(DATABASE_DIR, 'database.json')
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
-const CATEGORIES_TO_CACHE = [21, 22, 23] // Categorias para cachear
 
 // Garantir que o diretório data existe
 if (!fs.existsSync(DATABASE_DIR)) {
@@ -419,7 +417,7 @@ export async function getCategoryPosts(categoryId: number, options: {
             posts = posts.sort((a, b) => {
               // Extrair os títulos (que podem ser objetos do WordPress)
               const titleA = typeof a.title === 'object' ? a.title.rendered : (a.title || '');
-              const titleB = typeof b.title === 'object' ? b.title.rendered : (b.title || '');
+              const titleB = typeof b.title === 'object' ? a.title.rendered : (a.title || '');
               
               // Garantir que estamos comparando strings
               const strA = String(titleA).toLowerCase();
@@ -767,39 +765,132 @@ function extractSubcategories(db, categoryId) {
 }
 
 // Função para buscar todos os posts de uma categoria
-export function getAllCategoryPosts(categoryId: number) {
+export async function getAllCategoryPosts(categoryId: number) {
   try {
-    // Verificar se precisa atualizar
-    if (isDatabaseStale()) {
-      console.log('Banco de dados desatualizado, atualizando em segundo plano...')
-      updateDatabase().catch(err => console.error('Erro na atualização automática:', err))
+    console.log(`🔍 Getting all posts for category ${categoryId}`);
+    
+    // Ensure we have a number type for consistency
+    if (typeof categoryId === 'string') {
+      categoryId = parseInt(categoryId, 10);
     }
     
-    // Ler banco de dados
-    const db = initializeDatabase()
+    // Get database
+    const db = initializeDatabase();
     
-    // Verificar se a categoria existe
-    if (!db.categories[categoryId]) {
-      console.log(`Categoria ${categoryId} não encontrada no banco de dados`)
+    // Check if category exists in database
+    const stringCategoryId = String(categoryId);
+    const catKey = db.categories[categoryId] ? categoryId : stringCategoryId;
+    
+    // First check if we have the data in our database
+    if (db.categories?.[catKey]?.posts?.length > 0) {
+      const localPosts = db.categories[catKey].posts || [];
+      const category = db.categories[catKey].info || null;
+      
+      console.log(`💾 Found ${localPosts.length} posts in local database for category ${categoryId}`);
+      
+      // Process posts to ensure they have category information
+      const processedLocalPosts = localPosts.map(post => {
+        if (!post) return null;
+        if (!post.categoryName && category) {
+          post.categoryName = category.name;
+        }
+        return post;
+      }).filter(post => post !== null);
+      
+      // If the WordPress API indicates more posts than we have locally, fetch fresh data
+      const expectedPostCount = category?.count || 0;
+      
+      if (processedLocalPosts.length < expectedPostCount) {
+        console.log(`⚠️ Local data has only ${processedLocalPosts.length} posts but WordPress reports ${expectedPostCount} posts. Fetching fresh data...`);
+        
+        try {
+          // Try to fetch fresh data from the API
+          const response = await fetchCategoryPosts(categoryId, {
+            page: 1,
+            search: "",
+            type: "all",
+            sortBy: "recent"
+          });
+          
+          if (response?.posts?.length > processedLocalPosts.length) {
+            console.log(`✅ Successfully fetched ${response.posts.length} posts from API`);
+            
+            // Update our database with this more complete data
+            db.categories[catKey].posts = response.posts;
+            fs.writeFileSync(DATABASE_FILE, JSON.stringify(db));
+            
+            return {
+              posts: response.posts,
+              category: response.category || category,
+              totalPosts: response.posts.length
+            };
+          }
+        } catch (apiError) {
+          console.error('❌ Error fetching fresh data from API:', apiError);
+          // Continue with local data if API fails
+        }
+      }
+      
+      // Return local data
       return {
-        posts: [],
-        category: null,
-        totalPosts: 0
+        posts: processedLocalPosts,
+        category,
+        totalPosts: processedLocalPosts.length
+      };
+    } else {
+      console.log(`⚠️ Category ${categoryId} not found in database or has no posts`);
+      
+      // Try to fetch directly from API as fallback
+      try {
+        console.log(`🔄 Fetching category ${categoryId} directly from API...`);
+        const response = await fetchCategoryPosts(categoryId, {
+          page: 1,
+          search: "",
+          type: "all", 
+          sortBy: "recent"
+        });
+        
+        if (response?.posts?.length > 0) {
+          console.log(`✅ Successfully fetched ${response.posts.length} posts from API`);
+          
+          // Cache this data for future use
+          if (!db.categories[catKey]) {
+            db.categories[catKey] = {
+              info: response.category,
+              posts: []
+            };
+          }
+          db.categories[catKey].posts = response.posts;
+          fs.writeFileSync(DATABASE_FILE, JSON.stringify(db));
+          
+          return {
+            posts: response.posts,
+            category: response.category,
+            totalPosts: response.posts.length
+          };
+        } else {
+          return {
+            posts: [],
+            category: null,
+            totalPosts: 0
+          };
+        }
+      } catch (apiError) {
+        console.error('❌ Error fetching category from API:', apiError);
+        return {
+          posts: [],
+          category: null,
+          totalPosts: 0
+        };
       }
     }
-    
-    return {
-      posts: db.categories[categoryId].posts,
-      category: db.categories[categoryId].info,
-      totalPosts: db.categories[categoryId].posts.length
-    }
   } catch (error) {
-    console.error('Erro ao buscar todos os posts do banco de dados local:', error)
+    console.error('❌ Error fetching all category posts:', error);
     return {
       posts: [],
       category: null,
       totalPosts: 0
-    }
+    };
   }
 }
 
@@ -884,28 +975,44 @@ function getAllAvailableCategories(db) {
 async function fetchAllCategoryIds() {
   try {
     console.log('📊 Buscando todas as categorias disponíveis...');
-    // WordPress REST API endpoint for categories
-    const response = await axios.get("https://lcj-educa.com/?rest_route=/wp/v2/categories", {
-      params: {
-        per_page: 100, // Maximum allowed by WordPress API
-        _fields: 'id,name,parent,slug,count' // Get only what we need
-      }
-    });
     
-    if (!response.data || !Array.isArray(response.data)) {
-      console.error('❌ Resposta inválida ao buscar categorias:', response.data);
-      return [21, 22]; // Default fallback
+    let allCategories = [];
+    let page = 1;
+    let hasMorePages = true;
+    
+    // WordPress has pagination limits, so we need to fetch all pages
+    while (hasMorePages) {
+      const response = await axios.get("https://lcj-educa.com/?rest_route=/wp/v2/categories", {
+        params: {
+          per_page: 100, // Maximum allowed by WordPress API
+          page: page,
+          _fields: 'id,name,parent,slug,count' // Get only what we need
+        }
+      });
+      
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        allCategories = [...allCategories, ...response.data];
+        
+        // Check if there are more pages
+        const totalPages = parseInt(response.headers['x-wp-totalpages'] || '1');
+        if (page >= totalPages) {
+          hasMorePages = false;
+        } else {
+          page++;
+        }
+      } else {
+        hasMorePages = false;
+      }
     }
     
-    const categories = response.data;
-    console.log(`✅ Encontradas ${categories.length} categorias (incluindo subcategorias)`);
+    console.log(`✅ Encontradas ${allCategories.length} categorias (incluindo subcategorias)`);
     
     // Extract IDs from response
-    return categories.map(category => category.id);
+    return allCategories.map(category => category.id);
   } catch (error) {
     console.error('❌ Erro ao buscar IDs de categorias:', error);
-    // Return default categories as fallback
-    return [21, 22, 27, 28, 31, 32];
+    // Return empty array instead of hardcoded fallback
+    return [];
   }
 }
 
@@ -1673,5 +1780,72 @@ export async function debugCategory(categoryId: number) {
   } catch (error) {
     console.error(`Error debugging category ${categoryId}:`, error);
     return { exists: false, error: error.message };
+  }
+}
+
+// Add this new function to fetch and cache all categories
+export async function getAllCategories() {
+  try {
+    console.log('🔍 Fetching all WordPress categories...');
+    
+    // Check if we have categories in the database
+    const db = initializeDatabase();
+    
+    // If we have a categories_list with recent timestamp, use it
+    if (db.categories_list?.timestamp && 
+        (Date.now() - db.categories_list.timestamp < 24 * 60 * 60 * 1000) && // 24 hours cache
+        Array.isArray(db.categories_list.data) && 
+        db.categories_list.data.length > 0) {
+      console.log(`✅ Using ${db.categories_list.data.length} cached categories from database`);
+      return db.categories_list.data;
+    }
+    
+    // Otherwise fetch from WordPress API
+    console.log('🔄 Categories cache missing or expired, fetching from API...');
+    
+    let allCategories = [];
+    let page = 1;
+    let hasMorePages = true;
+    
+    // WordPress has pagination, so we need to fetch all pages
+    while (hasMorePages) {
+      const response = await axios.get("https://lcj-educa.com/?rest_route=/wp/v2/categories", {
+        params: {
+          per_page: 100, // Maximum allowed by WP API
+          page: page,
+          _fields: 'id,name,parent,slug,count' // Get only what we need
+        }
+      });
+      
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        allCategories = [...allCategories, ...response.data];
+        
+        // Check if there are more pages
+        const totalPages = parseInt(response.headers['x-wp-totalpages'] || '1');
+        if (page >= totalPages) {
+          hasMorePages = false;
+        } else {
+          page++;
+        }
+      } else {
+        hasMorePages = false;
+      }
+    }
+    
+    console.log(`✅ Fetched ${allCategories.length} categories from WordPress API`);
+    
+    // Save to database for future use
+    db.categories_list = {
+      timestamp: Date.now(),
+      data: allCategories
+    };
+    fs.writeFileSync(DATABASE_FILE, JSON.stringify(db));
+    
+    return allCategories;
+  } catch (error) {
+    console.error('❌ Error fetching all categories:', error);
+    
+    // Default empty array as fallback
+    return [];
   }
 }

@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/utils"
 import Image from "next/image"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
 
 // Helper function to extract plain text
 function extractPlainText(content: any): string {
@@ -58,72 +59,140 @@ interface ArchivesListProps {
 
 const DEFAULT_IMAGE = "https://lcj-educa.com/wp-content/uploads/2025/02/legislacion-ii.png"
 
-// Define a proper category map with all needed categories
-const CATEGORY_MAP: Record<string, string> = {
-  '1': 'Sem Categoria',
-  '22': 'Materias Direito',
-  '27': 'Direito Civil',
-  '31': 'Direito Romano',
-  // Add more categories as needed
-};
-
-// Update getCategoryDisplayName function
-function getCategoryDisplayName(archive: Archive): string {
-  // Check categories array first (your log shows this is available)
-  if (Array.isArray(archive.categories) && archive.categories.length > 0) {
-    // For displaying in the UI, just show the first category
-    const firstCategory = archive.categories[0];
-    const categoryId = String(firstCategory);
-    
-    // Look up the name in our map
-    if (CATEGORY_MAP[categoryId]) {
-      return CATEGORY_MAP[categoryId];
-    }
-    
-    // Fallback
-    return `Categoria ${categoryId}`;
-  }
-  
-  // If we don't have categories array, try other properties
-  if (archive.categoryName) {
-    return archive.categoryName;
-  }
-  
-  if (archive.category) {
-    const categoryId = String(archive.category);
-    if (CATEGORY_MAP[categoryId]) {
-      return CATEGORY_MAP[categoryId];
-    }
-    return `Categoria ${categoryId}`;
-  }
-  
-  return 'Sem categoria';
+// New interface for WordPress categories
+interface WordPressCategory {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+  count: number;
 }
 
-// Add this debug function to your component to see what fields are available
-function debugArchiveObject(archive: any) {
-  // Extract and log all possible content fields
-  console.log("Archive content fields:", {
-    id: archive.id,
-    title: archive.title,
-    content: typeof archive.content === 'object' ? "[object]" : typeof archive.content,
-    contentRendered: archive.content?.rendered ? "exists" : "missing",
-    excerpt: typeof archive.excerpt === 'object' ? "[object]" : typeof archive.excerpt,
-    excerptRendered: archive.excerpt?.rendered ? "exists" : "missing",
-    plainExcerpt: archive.plainExcerpt ? "exists" : "missing", 
-    description: archive.description ? "exists" : "missing",
-    date: archive.date,
-    formattedDate: archive.formattedDate,
-  });
-}
-
-// Update the excerpt extraction in your component
+// Component to fetch and manage categories
 export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesListProps) {
-  // Debug the first archive to understand its structure
-  if (archives?.length > 0) {
-    debugArchiveObject(archives[0]);
-  }
+  // State to store dynamically fetched categories
+  const [categories, setCategories] = useState<Record<string, string>>({});
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  // Update the useEffect hook to use our API route
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        setCategoriesLoading(true);
+        
+        // Use our API endpoint
+        const response = await fetch('/api/categories');
+        
+        if (!response.ok) {
+          throw new Error(`API returned status: ${response.status}`);
+        }
+        
+        const categories = await response.json();
+        
+        if (!Array.isArray(categories) || categories.length === 0) {
+          console.warn('Categories API returned empty or invalid data', categories);
+          throw new Error('No categories data available');
+        }
+        
+        // Convert to category map
+        const categoryMap: Record<string, string> = {};
+        categories.forEach((category: WordPressCategory) => {
+          categoryMap[String(category.id)] = category.name;
+        });
+        
+        setCategories(categoryMap);
+        console.log('✅ Fetched categories:', Object.keys(categoryMap).length);
+      } catch (error) {
+        console.error('❌ Error fetching categories:', error);
+        // Fallback to direct WordPress API call
+        try {
+          console.log('⚠️ Trying fallback to direct WordPress API...');
+          const wpResponse = await fetch('https://lcj-educa.com/?rest_route=/wp/v2/categories?per_page=100');
+          const wpCategories = await wpResponse.json();
+          
+          const fallbackMap: Record<string, string> = {};
+          wpCategories.forEach((cat: WordPressCategory) => {
+            fallbackMap[String(cat.id)] = cat.name;
+          });
+          
+          setCategories(fallbackMap);
+          console.log('✅ Fallback successful, fetched:', Object.keys(fallbackMap).length);
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          // Ultimate fallback to hardcoded categories
+          setCategories({
+            '1': 'Sem Categoria',
+            '22': 'Materias de Direito',
+            '31': 'Materias de Contabilidade',
+            '51': 'Documentos Importantes'
+          });
+        }
+      } finally {
+        setCategoriesLoading(false);
+      }
+    }
+    
+    fetchCategories();
+  }, []);
   
+  // Updated function to get category name dynamically with better debugging
+  function getCategoryDisplayName(archive: Archive): string {
+    // Log the current state for debugging
+    console.log(`Getting category for archive ID ${archive.id}:`, {
+      categories: archive.categories?.length || 0,
+      categoryProp: archive.category || 'none',
+      categoryName: archive.categoryName || 'none',
+      categoriesLoaded: Object.keys(categories).length
+    });
+    
+    // Check categories array first
+    if (Array.isArray(archive.categories) && archive.categories.length > 0) {
+      const firstCategory = archive.categories[0];
+      const categoryId = String(firstCategory);
+      
+      // Use our dynamically loaded categories
+      if (categories[categoryId]) {
+        return categories[categoryId];
+      }
+      
+      // Fallback if category not found in our map
+      return archive.categoryName || `Categoria ${categoryId}`;
+    }
+    
+    // If we don't have categories array, try other properties
+    if (archive.categoryName) {
+      return archive.categoryName;
+    }
+    
+    if (archive.category) {
+      const categoryId = String(archive.category);
+      if (categories[categoryId]) {
+        return categories[categoryId];
+      }
+      return `Categoria ${categoryId}`;
+    }
+    
+    return 'Sem categoria';
+  }
+
+  // Debug function remains the same
+  function debugArchiveObject(archive: any) {
+    // Extract and log all possible content fields
+    console.log("Archive content fields:", {
+      id: archive.id,
+      title: archive.title,
+      content: typeof archive.content === 'object' ? "[object]" : typeof archive.content,
+      contentRendered: archive.content?.rendered ? "exists" : "missing",
+      excerpt: typeof archive.excerpt === 'object' ? "[object]" : typeof archive.excerpt,
+      excerptRendered: archive.excerpt?.rendered ? "exists" : "missing",
+      plainExcerpt: archive.plainExcerpt ? "exists" : "missing", 
+      description: archive.description ? "exists" : "missing",
+      date: archive.date,
+      formattedDate: archive.formattedDate,
+    });
+  }
+
+  // The rest of your component remains the same
   // Handle loading state
   if (isLoading) {
     return view === "grid" ? (
