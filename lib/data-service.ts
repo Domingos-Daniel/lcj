@@ -1849,3 +1849,74 @@ export async function getAllCategories() {
     return [];
   }
 }
+
+// Add this function to properly enhance posts for the archives component
+
+export async function getEnhancedPosts() {
+  try {
+    console.log('🔄 Enhancing posts with category names...');
+    
+    // Get all posts and categories
+    const posts = getAllPosts();
+    const categories = await getAllCategories();
+    
+    // Create a map of category ID to category name for quick lookups
+    const categoryMap = {};
+    categories.forEach(category => {
+      categoryMap[category.id] = category.name;
+    });
+    
+    // Process each post to enhance it
+    const enhancedPosts = posts.map(post => {
+      // Create a new object with all existing properties
+      const enhancedPost = { ...post };
+      
+      // Ensure categories are properly processed
+      if (post.categories && Array.isArray(post.categories)) {
+        // Add categoryNames array (maintain original categories array)
+        enhancedPost.categoryNames = post.categories.map(catId => 
+          categoryMap[catId] || `Category ${catId}`
+        );
+        
+        // Add categoryName for compatibility (using first category)
+        if (post.categories.length > 0) {
+          const firstCatId = post.categories[0];
+          enhancedPost.categoryName = categoryMap[firstCatId] || `Category ${firstCatId}`;
+        }
+      }
+      
+      // Format date for direct use
+      if (post.date) {
+        enhancedPost.formattedDate = new Date(post.date).toLocaleDateString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      }
+      
+      // Extract plain text from excerpt or content
+      if (post.excerpt && post.excerpt.rendered) {
+        enhancedPost.plainExcerpt = post.excerpt.rendered
+          .replace(/<[^>]*>/g, '')
+          .trim();
+      } else if (post.content && post.content.rendered) {
+        enhancedPost.plainExcerpt = post.content.rendered
+          .replace(/<[^>]*>/g, '')
+          .slice(0, 150) + '...';
+      }
+      
+      // Ensure title is accessible directly
+      if (post.title && post.title.rendered) {
+        enhancedPost.plainTitle = post.title.rendered;
+      }
+      
+      return enhancedPost;
+    });
+    
+    console.log(`✅ Enhanced ${enhancedPosts.length} posts`);
+    return enhancedPosts;
+  } catch (error) {
+    console.error('❌ Error enhancing posts:', error);
+    return [];
+  }
+}
