@@ -8,6 +8,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { useEffect, useState } from "react"
+import { Content } from "next/font/google"
 
 // Helper function to extract plain text
 function extractPlainText(content: any): string {
@@ -170,6 +171,26 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
     return 'Sem categoria';
   }
 
+  // Adicione/atualize a função para obter um array de nomes de categorias
+  function getCategoryDisplayNames(archive: Archive): string[] {
+    let names: string[] = [];
+    
+    if (Array.isArray(archive.categories) && archive.categories.length > 0) {
+      names = archive.categories.map(catId => {
+        const idStr = String(catId);
+        return categories[idStr] || `Categoria ${idStr}`;
+      });
+    } else if (archive.categoryName) {
+      names = [archive.categoryName];
+    } else if (archive.category) {
+      const idStr = String(archive.category);
+      names = [categories[idStr] || `Categoria ${idStr}`];
+    }
+    
+    // Se não encontrar nenhum nome, retorna valor padrão
+    return names.length ? names : ['Sem categoria'];
+  }
+
   // Debug function remains the same
   function debugArchiveObject(archive: any) {
     // Extract and log all possible content fields
@@ -243,7 +264,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
   if (view === "grid") {
     return (
       <div className="grid gap-6 md:grid-cols-2">
-        {archives.map((archive) => {
+        {archives.map((archive, index) => {
           // Extract category name
           const categoryDisplayName = getCategoryDisplayName(archive);
           
@@ -295,7 +316,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
           
           return (
             <Card 
-              key={archive.id} 
+              key={index} 
               className="overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full"
             >
               <div className="relative h-48">
@@ -306,13 +327,13 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
-                {categoryDisplayName && (
-                  <Badge 
-                    className="absolute top-4 left-4 bg-primary/80 hover:bg-primary"
-                  >
-                    {categoryDisplayName}
-                  </Badge>
-                )}
+                <div className="absolute top-4 left-4 flex flex-wrap gap-1">
+                  {getCategoryDisplayNames(archive).map((cat, idx) => (
+                    <Badge key={idx} className="bg-primary/80 hover:bg-primary">
+                      {cat}
+                    </Badge>
+                  ))}
+                </div>
               </div>
               
               <div className="p-5 flex flex-col flex-grow">
@@ -360,7 +381,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
   // List View (when view !== "grid")
   return (
     <div className="space-y-6">
-      {archives.map((archive) => {
+      {archives.map((archive, index) => {
         // Extract category name
         const categoryDisplayName = getCategoryDisplayName(archive);
         
@@ -412,7 +433,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
         
         return (
           <Card 
-            key={archive.id} 
+            key={index} 
             className="hover:shadow-lg transition-all duration-300 overflow-hidden rounded-xl border border-muted/40 shadow-lg"
           >
             <div className="flex flex-col md:flex-row">
@@ -425,11 +446,14 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                   className="object-cover transition-transform duration-300 hover:scale-105 rounded-t-xl md:rounded-l-xl md:rounded-r-none"
                   sizes="(max-width: 768px) 100vw, 30vw"
                 />
-                {categoryDisplayName && (
-                  <Badge className="absolute top-3 left-3 bg-gradient-to-r from-primary to-secondary text-white px-3 py-1 rounded-full">
-                    {categoryDisplayName}
-                  </Badge>
-                )}
+
+                <div className="absolute top-4 left-4 flex flex-wrap gap-1">
+                  {getCategoryDisplayNames(archive).map((cat, idx) => (
+                    <Badge key={idx} className=" bg-gradient-to-r from-primary to-secondary hover:bg-primary">
+                      {cat}
+                    </Badge>
+                  ))}
+                </div>
               </div>
               
               {/* Content with 70% width */}
@@ -439,7 +463,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                 </h3>
                 
                 <p className="text-sm text-muted-foreground line-clamp-3">
-                  {excerpt}
+                  {excerpt || content.rendered}
                 </p>
                 
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-muted/30">

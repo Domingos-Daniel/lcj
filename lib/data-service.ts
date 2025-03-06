@@ -5,7 +5,7 @@ import { fetchPosts, fetchCategoryPosts } from '@/utils/api'
 
 const DATABASE_DIR = path.join(process.cwd(), 'data')
 const DATABASE_FILE = path.join(DATABASE_DIR, 'database.json')
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 horas
 
 // Garantir que o diretório data existe
 if (!fs.existsSync(DATABASE_DIR)) {
