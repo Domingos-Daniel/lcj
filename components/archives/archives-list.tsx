@@ -72,7 +72,7 @@ interface WordPressCategory {
 // Component to fetch and manage categories
 export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesListProps) {
   // State to store dynamically fetched categories
-  const [categories, setCategories] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<Record<string, WordPressCategory>>({});
   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   // Update the useEffect hook to use our API route
@@ -88,17 +88,17 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
           throw new Error(`API returned status: ${response.status}`);
         }
         
-        const categories = await response.json();
+        const wpCategories = await response.json();
         
-        if (!Array.isArray(categories) || categories.length === 0) {
-          console.warn('Categories API returned empty or invalid data', categories);
+        if (!Array.isArray(wpCategories) || wpCategories.length === 0) {
+          console.warn('Categories API returned empty or invalid data', wpCategories);
           throw new Error('No categories data available');
         }
         
         // Convert to category map
-        const categoryMap: Record<string, string> = {};
-        categories.forEach((category: WordPressCategory) => {
-          categoryMap[String(category.id)] = category.name;
+        const categoryMap: Record<string, WordPressCategory> = {};
+        wpCategories.forEach((cat: WordPressCategory) => {
+          categoryMap[String(cat.id)] = cat;
         });
         
         setCategories(categoryMap);
@@ -111,9 +111,9 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
           const wpResponse = await fetch('https://lcj-educa.com/?rest_route=/wp/v2/categories?per_page=100');
           const wpCategories = await wpResponse.json();
           
-          const fallbackMap: Record<string, string> = {};
+          const fallbackMap: Record<string, WordPressCategory> = {};
           wpCategories.forEach((cat: WordPressCategory) => {
-            fallbackMap[String(cat.id)] = cat.name;
+            fallbackMap[String(cat.id)] = cat;
           });
           
           setCategories(fallbackMap);
@@ -122,10 +122,10 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
           console.error('❌ Fallback also failed:', fallbackError);
           // Ultimate fallback to hardcoded categories
           setCategories({
-            '1': 'Sem Categoria',
-            '22': 'Materias de Direito',
-            '31': 'Materias de Contabilidade',
-            '51': 'Documentos Importantes'
+            '1': { id: 1, name: 'Sem Categoria', slug: '', parent: 0, count: 0 },
+            '22': { id: 22, name: 'Materias de Direito', slug: '', parent: 0, count: 0 },
+            '31': { id: 31, name: 'Materias de Contabilidade', slug: '', parent: 0, count: 0 },
+            '51': { id: 51, name: 'Documentos Importantes', slug: '', parent: 0, count: 0 }
           });
         }
       } finally {
@@ -138,34 +138,14 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
   
   // Updated function to get category name dynamically with better debugging
   function getCategoryDisplayName(archive: Archive): string {
-    // Log the current state for debugging
-    
-    
-    // Check categories array first
     if (Array.isArray(archive.categories) && archive.categories.length > 0) {
-      const firstCategory = archive.categories[0];
-      const categoryId = String(firstCategory);
-      
-      // Use our dynamically loaded categories
-      if (categories[categoryId]) {
-        return categories[categoryId];
-      }
-      
-      // Fallback if category not found in our map
-      return archive.categoryName || `Processando... ${categoryId}`;
+      return buildCategoryHierarchy(archive.categories[0]);
     }
     
-    // If we don't have categories array, try other properties
-    if (archive.categoryName) {
-      return archive.categoryName;
-    }
+    if (archive.categoryName) return archive.categoryName;
     
     if (archive.category) {
-      const categoryId = String(archive.category);
-      if (categories[categoryId]) {
-        return categories[categoryId];
-      }
-      return `Categoria ${categoryId}`;
+      return buildCategoryHierarchy(archive.category);
     }
     
     return 'Sem categoria';
@@ -176,19 +156,35 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
     let names: string[] = [];
     
     if (Array.isArray(archive.categories) && archive.categories.length > 0) {
-      names = archive.categories.map(catId => {
-        const idStr = String(catId);
-        return categories[idStr] || `Categoria ${idStr}`;
-      });
+      names = archive.categories.map(catId => buildCategoryHierarchy(catId));
     } else if (archive.categoryName) {
       names = [archive.categoryName];
     } else if (archive.category) {
-      const idStr = String(archive.category);
-      names = [categories[idStr] || `Categoria ${idStr}`];
+      names = [buildCategoryHierarchy(archive.category)];
     }
     
     // Se não encontrar nenhum nome, retorna valor padrão
     return names.length ? names : ['Sem categoria'];
+  }
+
+  // 3. Função auxiliar para construir a hierarquia (até 3 níveis)
+  function buildCategoryHierarchy(catId: number | string): string {
+    let chain: string[] = [];
+    let current = categories[String(catId)];
+  
+    // Limite a três níveis (neto máximo)
+    let counter = 0;
+    while (current && counter < 3) {
+      // Insere no início para que a ordem fique do nível mais elevado até o menor
+      chain.unshift(current.name);
+      if (current.parent && categories[String(current.parent)] && current.parent !== 0) {
+        current = categories[String(current.parent)];
+      } else {
+        break;
+      }
+      counter++;
+    }
+    return chain.join(" > ");
   }
 
   // Debug function remains the same
@@ -328,11 +324,59 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
                 <div className="absolute top-4 left-4 flex flex-wrap gap-1">
-                  {getCategoryDisplayNames(archive).map((cat, idx) => (
-                    <Badge key={idx} className="bg-primary/80 hover:bg-primary">
-                      {cat}
-                    </Badge>
-                  ))}
+                  {(() => {
+                    // Obter as cadeias completas e suas divisões em nível
+                    const chains = getCategoryDisplayNames(archive).map(chain => chain.split(" > "));
+                    
+                    if (chains.length > 1) {
+                      // Determina o prefixo comum a todas as cadeias
+                      let commonPrefix: string[] = [];
+                      const minLength = Math.min(...chains.map(arr => arr.length));
+                      
+                      for (let i = 0; i < minLength; i++) {
+                        const current = chains[0][i];
+                        if (chains.every(arr => arr[i] === current)) {
+                          commonPrefix.push(current);
+                        } else {
+                          break;
+                        }
+                      }
+                      
+                      return (
+                        <>
+                          {commonPrefix.length > 0 && (
+                            <Badge 
+                              className="bg-gradient-to-r from-primary to-secondary text-white text-xs px-2 py-1 rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 hover:bg-black/80"
+                            >
+                              {commonPrefix.join(" > ")}
+                            </Badge>
+                          )}
+                          {chains.map((levels, idx) => {
+                            const remainder = levels.slice(commonPrefix.length);
+                            return remainder.map((level, i) => (
+                              <Badge
+                                key={`${idx}-${i}`}
+                                className="bg-gradient-to-r from-primary to-secondary text-white text-xs px-2 py-1 rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 hover:bg-black/80"
+                              >
+                                {level}
+                              </Badge>
+                            ));
+                          })}
+                        </>
+                      );
+                    } else if (chains.length === 1) {
+                      // Se houver apenas uma cadeia, renderize seus níveis individualmente
+                      return chains[0].map((level, i) => (
+                        <Badge
+                          key={i}
+                          className="bg-gradient-to-r from-primary to-secondary text-white text-xs px-2 py-1 rounded-full shadow-sm backdrop-blur-sm transition-colors duration-200 hover:bg-black/80"
+                        >
+                          {level}
+                        </Badge>
+                      ));
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
               
@@ -447,13 +491,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                   sizes="(max-width: 768px) 100vw, 30vw"
                 />
 
-                <div className="absolute top-4 left-4 flex flex-wrap gap-1">
-                  {getCategoryDisplayNames(archive).map((cat, idx) => (
-                    <Badge key={idx} className=" bg-gradient-to-r from-primary to-secondary hover:bg-primary">
-                      {cat}
-                    </Badge>
-                  ))}
-                </div>
+                
               </div>
               
               {/* Content with 70% width */}
