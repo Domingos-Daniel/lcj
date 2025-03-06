@@ -151,7 +151,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
       }
       
       // Fallback if category not found in our map
-      return archive.categoryName || `Categoria ${categoryId}`;
+      return archive.categoryName || `Processando... ${categoryId}`;
     }
     
     // If we don't have categories array, try other properties
