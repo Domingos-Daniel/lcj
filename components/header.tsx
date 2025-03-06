@@ -67,7 +67,7 @@ export function Header() {
             <Search className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground" />
           </div>
           <Link href="/auth" onClick={handleNavigation}>
-            <Button>Entrar</Button>
+            <Button id="user-account">Entrar</Button>
           </Link>
           <ThemeSwitcher />
         </div>

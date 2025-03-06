@@ -12,83 +12,56 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
+import { getNavigationLinks } from "@/lib/navigation"
 
 interface MainNavProps {
   currentPath?: string
 }
 
 export function MainNav({ currentPath }: MainNavProps) {
+  const navLinks = getNavigationLinks();
+  
   return (
-    <NavigationMenu>
+    <NavigationMenu id="main-menu">
       <NavigationMenuList>
-        <NavigationMenuItem>
-          <Link href="/arquivos/22" className={cn(
-            navigationMenuTriggerStyle(),
-            currentPath === "/arquivos/22" && "bg-accent text-accent-foreground",
-          )}>
-            Matérias de Direito
-          </Link>
-        </NavigationMenuItem>
-        
-        <NavigationMenuItem>
-          <NavigationMenuTrigger>Peças Processuais</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px]">
-              <ListItem 
-                href="/arquivos/32" 
-                title="Peças Processuais de Direito Público" 
-                active={currentPath === "/arquivos/32"}
-              >
-                Petições, recursos e documentos relacionados ao Direito Público, incluindo Administrativo e Constitucional.
-              </ListItem>
-              <ListItem 
-                href="/arquivos/28" 
-                title="Peças Processuais de Direito Privado" 
-                active={currentPath === "/arquivos/28"}
-              >
-                Modelos de petições e documentos para casos de Direito Civil, Empresarial e outras áreas privadas.
-              </ListItem>
-              <ListItem 
-                href="/arquivos/31" 
-                title="Peças Processuais de Direito Genéricas" 
-                active={currentPath === "/arquivos/31"}
-              >
-                Modelos gerais e formulários que podem ser adaptados para diferentes áreas do Direito.
-              </ListItem>
-              <ListItem 
-                href="/arquivos/27" 
-                title="Todas as Peças Processuais" 
-                active={currentPath === "/arquivos/27"}
-              >
-                Acesse a coleção completa de peças processuais disponíveis em nosso acervo.
-              </ListItem>
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-        
-        <NavigationMenuItem>
-          <Link href="/cadastramento" className={cn(
-            navigationMenuTriggerStyle(),
-            currentPath === "/cadastramento" && "bg-accent text-accent-foreground",
-          )}>
-            Cadastramento
-          </Link>
-        </NavigationMenuItem>
-        
-        <NavigationMenuItem>
-          <Link href="/sobre" className={cn(
-            navigationMenuTriggerStyle(),
-            currentPath === "/sobre" && "bg-accent text-accent-foreground",
-          )}>
-            Quem Somos
-          </Link>
-        </NavigationMenuItem>
+        {navLinks.map((item) => (
+          <NavigationMenuItem key={item.title}>
+            {item.href && !item.items ? (
+              // Simple link without dropdown
+              <Link href={item.href} className={cn(
+                navigationMenuTriggerStyle(),
+                currentPath === item.href && "bg-accent text-accent-foreground",
+              )}>
+                {item.title}
+              </Link>
+            ) : (
+              // Dropdown menu
+              <>
+                <NavigationMenuTrigger id="dropdown-menu">{item.title}</NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="grid gap-3 p-6 md:w-[400px] lg:w-[500px]">
+                    {item.items?.map((subItem) => (
+                      <ListItem 
+                        key={subItem.href}
+                        href={subItem.href} 
+                        title={subItem.title} 
+                        active={currentPath === subItem.href}
+                      >
+                        {subItem.description || subItem.title}
+                      </ListItem>
+                    ))}
+                  </ul>
+                </NavigationMenuContent>
+              </>
+            )}
+          </NavigationMenuItem>
+        ))}
       </NavigationMenuList>
     </NavigationMenu>
   )
 }
 
-// ListItem com Link do Next.js para navegação do lado do cliente
+// ListItem component remains the same
 const ListItem = React.forwardRef<HTMLLIElement, React.ComponentPropsWithoutRef<"a"> & { 
   active?: boolean; 
   href: string; 

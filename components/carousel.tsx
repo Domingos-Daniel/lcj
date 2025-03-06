@@ -162,7 +162,7 @@ export function Carousel() {
         ))}
 
         {/* Controles */}
-        <div className="absolute right-6 bottom-6 flex space-x-2">
+        <div id="carousel-controls" className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
           <Button
             size="icon"
             variant="secondary"

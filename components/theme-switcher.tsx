@@ -27,6 +27,7 @@ export function ThemeSwitcher() {
 
   return (
     <Button
+      id="theme-toggle"
       variant="ghost"
       size="icon"
       onClick={toggleTheme}
