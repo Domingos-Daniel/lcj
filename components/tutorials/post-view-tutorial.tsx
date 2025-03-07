@@ -89,7 +89,6 @@ export function PostViewTutorial() {
     setIsComplete(false)
     
     // Log de início do tutorial
-    console.log('🔍 Iniciando tutorial de visualização de artigo')
     
     setTimeout(() => {
       highlightElement(steps[0].element, steps[0].fallbackElement)
@@ -100,22 +99,22 @@ export function PostViewTutorial() {
   const endTutorial = (completed = true) => {
     resetHighlight()
     
-    if (completed && !hasShownTutorial) {
+    if (completed) {
       setIsComplete(true)
-      launchConfetti()
+      launchConfetti()  // Dispara confetti independentemente se é primeira vez ou não
       
       // Delay para mostrar o confetti antes de fechar
       setTimeout(() => {
         setIsActive(false)
         // Marcar como visto
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !hasShownTutorial) {
           localStorage.setItem('post-view-tutorial-seen', 'true')
           setHasShownTutorial(true)
         }
-      }, 2500)
+      }, 6000)  // Aumentei para 3 segundos para dar mais tempo para ver o confetti
     } else {
       setIsActive(false)
-      if (completed) {
+      if (!hasShownTutorial) {
         // Marcar como visto mesmo se cancelou
         if (typeof window !== 'undefined') {
           localStorage.setItem('post-view-tutorial-seen', 'true')
@@ -129,18 +128,55 @@ export function PostViewTutorial() {
   const launchConfetti = () => {
     if (typeof window === 'undefined') return
     
-    const canvasConfetti = confetti.create(undefined, { 
-      resize: true,
-      useWorker: true
-    });
+    // Lança vários confettis para um efeito mais dramático
+    const duration = 6000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1002 };
     
-    canvasConfetti({
-      particleCount: 200,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42'],
-      disableForReducedMotion: true
-    });
+    function randomInRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+    
+    const interval = setInterval(function() {
+      const timeLeft = animationEnd - Date.now();
+      
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+      
+      const particleCount = 50 * (timeLeft / duration);
+      
+      // Dispara confetti de posições aleatórias
+      confetti({
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+        colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42'],
+        disableForReducedMotion: true,
+        zIndex: 1002,
+        ...defaults
+      });
+      
+      confetti({
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+        colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42'],
+        disableForReducedMotion: true,
+        zIndex: 1002,
+        ...defaults
+      });
+    }, 250);
+    
+    // Também lança canhões de confetti do centro da tela
+    setTimeout(() => {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42'],
+        disableForReducedMotion: true,
+        zIndex: 1002
+      });
+    }, 500);
   }
   
   // Avançar para o próximo passo
@@ -355,6 +391,16 @@ export function PostViewTutorial() {
           border: 1px solid var(--tooltip-border, var(--border, transparent));
         }
         
+        @keyframes celebrate {
+          0% { transform: scale(0.8); opacity: 0; }
+          50% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .celebration-message {
+          animation: celebrate 0.5s ease-out forwards;
+        }
+        
         /* Variáveis de tema */
         :root {
           --highlight-color: rgba(59, 130, 246, 0.5);
@@ -444,13 +490,16 @@ export function PostViewTutorial() {
             </div>
             
             {isComplete && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg celebration-message">
                 <div className="text-center p-4">
-                  <div className="text-2xl mb-2">🎉</div>
-                  <h3 className="text-xl font-bold mb-2">Tutorial Concluído!</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Agora você conhece os principais recursos desta página.
+                  <div className="text-4xl mb-3">🎉</div>
+                  <h3 className="text-xl font-bold mb-3">Tutorial Concluído!</h3>
+                  <p className="text-muted-foreground mb-3">
+                    Parabéns! Você conhece agora todos os recursos desta página, bom proveito 😊👌.
                   </p>
+                  <div className="text-2xl">
+                    ✨ 🚀 ✨
+                  </div>
                 </div>
               </div>
             )}
