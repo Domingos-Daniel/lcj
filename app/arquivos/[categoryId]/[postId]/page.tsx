@@ -23,20 +23,20 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
   }
   
   return {
-    title: `${post.title} | LCJ`,
+    title: `Lendo: ${post.title}`,
     description: post.excerpt || "Conteúdo jurídico detalhado da Linguagem Claríssima Jurídica",
   }
 }
 
 export default async function PostPage({ params }: PostPageProps) {
   // Para debug, vamos logar os parâmetros recebidos
-  console.log("Parâmetros da página:", params);
+  //console.log("Parâmetros da página:", params);
   
   // Buscar o post usando o ID
   const post = await getPostById(params.postId)
   
   // Log para debug
-  console.log("Post encontrado:", post ? "Sim" : "Não");
+  //console.log("Post encontrado:", post ? "Sim" : "Não");
   
   // Se não encontrar o post, mostrar 404
   if (!post) {
@@ -45,7 +45,6 @@ export default async function PostPage({ params }: PostPageProps) {
   
   return (
     <>
-      <TutorialOverlay pageKey="post" />
       <PostViewLayout post={post} categoryId={params.categoryId} />
     </>
   )

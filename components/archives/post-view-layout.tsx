@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-
+import "./post-view.css"
 import { 
   ChevronLeft, ChevronRight, Clock, Calendar, User, Share2, Bookmark, 
-  Eye, MessageSquare, ThumbsUp, Facebook, Twitter, 
-  Linkedin, Mail, PanelRightClose, PanelRightOpen
+  Eye, ThumbsUp, Facebook, Twitter, 
+  Linkedin, Mail, PanelRightClose, PanelRightOpen,
+  Maximize, Minimize
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,9 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
   const [likes, setLikes] = useState(post.likes || 0)
   const [hasLiked, setHasLiked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
   
   // Verificar se o post foi salvo anteriormente
   useEffect(() => {
@@ -44,6 +48,27 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
       setIsBookmarked(savedPosts.includes(post.id));
     }
   }, [post.id]);
+  
+  // Barra de progresso
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!contentRef.current) return;
+      
+      const element = contentRef.current;
+      const windowHeight = window.innerHeight;
+      const scrollY = window.scrollY;
+      const contentHeight = element.scrollHeight;
+      const documentHeight = element.offsetHeight;
+      
+      const maxScroll = contentHeight - windowHeight;
+      const progress = Math.min(1, scrollY / maxScroll);
+      
+      setScrollProgress(progress);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   
   const handleBookmark = () => {
     if (typeof window !== 'undefined') {
@@ -113,8 +138,28 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
   
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen)
   
+  const toggleFullScreen = () => {
+    if (isFullScreen) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error("Erro ao entrar em tela cheia:", err);
+      });
+    }
+    setIsFullScreen(!isFullScreen);
+  }
+  
   return (
     <div className="container max-w-5xl py-6 md:py-8">
+      {/* Barra de progresso */}
+      <div
+        className="fixed top-0 left-0 w-full h-2 bg-primary z-50"
+        style={{
+          transformOrigin: '0%',
+          transform: `scaleX(${scrollProgress})`
+        }}
+      />
+      
       {/* Navegação */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <Breadcrumbs 
@@ -153,20 +198,33 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
                 {post.title}
               </h1>
               
-              {/* Botão para toggle do sidebar - apenas visível em desktop */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleSidebar}
-                className="hidden lg:flex"
-                aria-label={sidebarOpen ? "Fechar painel lateral" : "Abrir painel lateral"}
-              >
-                {sidebarOpen ? (
-                  <PanelRightClose className="h-4 w-4" />
-                ) : (
-                  <PanelRightOpen className="h-4 w-4" />
-                )}
-              </Button>
+              {/* Botões de controle */}
+              <div className="flex items-center gap-2">
+                {/* Botão de tela cheia */}
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={toggleFullScreen}
+                >
+                  {isFullScreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+                  <span className="sr-only">{isFullScreen ? "Sair da tela cheia" : "Tela cheia"}</span>
+                </Button>
+                
+                {/* Botão para toggle do sidebar - apenas visível em desktop */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={toggleSidebar}
+                  className="hidden lg:flex"
+                  aria-label={sidebarOpen ? "Fechar painel lateral" : "Abrir painel lateral"}
+                >
+                  {sidebarOpen ? (
+                    <PanelRightClose className="h-6 w-6" />
+                  ) : (
+                    <PanelRightOpen className="h-6 w-6" />
+                  )}
+                </Button>
+              </div>
             </div>
             
             {/* Informações básicas e essenciais */}
@@ -198,8 +256,11 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
           </div>
           
           {/* Conteúdo principal do artigo - destacado e sem distrações */}
-          <article className="prose prose-lg dark:prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: post.content }} />
+          <article className="prose prose-lg dark:prose-invert max-w-none py-10 px-20 border-2 rounded-lg" ref={contentRef}>
+            <div 
+              className="formatted-content"
+              dangerouslySetInnerHTML={{ __html: post.content }} 
+            />
             
             {/* Seção somente impressão */}
             <div className="hidden print:block mt-6 pt-6 border-t">
@@ -264,17 +325,6 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-          
-          {/* Seção de comentários - simplificada */}
-          <div className="mt-12 pt-6 border-t">
-            <h3 className="text-lg font-medium mb-4">Comentários</h3>
-            <div className="text-center py-8">
-              <MessageSquare className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">
-                Comentários serão implementados em breve.
-              </p>
-            </div>
           </div>
         </div>
         
