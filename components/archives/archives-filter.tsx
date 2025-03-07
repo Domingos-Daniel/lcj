@@ -125,7 +125,7 @@ export function ArchivesFilter({
   // Aplique a ordenação após a filtragem
   if (filters.sortBy && filters.order) {
     validCategories = applySort(validCategories, filters.sortBy, filters.order);
-      validCategories.slice(0, 3).map(c => c.name));
+      validCategories.slice(0, 3).map(c => c.name);
   }
   
   // Função para manipular a mudança de opção de ordenação
