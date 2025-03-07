@@ -33,6 +33,29 @@ interface ArchivesFilterProps {
   onReset?: () => void
 }
 
+// Atualize o array sortOptions para remover os filtros A-Z e Z-A
+const sortOptions = [
+  { value: "date_desc", label: "Mais recentes primeiro" },
+  { value: "date_asc", label: "Mais antigos primeiro" },
+  { value: "random", label: "Aleatório" }
+];
+
+// Remova as opções de título na função getCurrentSortValue
+function getCurrentSortValue(filters: FilterState) {
+  if (!filters) return "date_desc"; // Valor padrão
+  
+  if (filters.sortBy === "date") {
+    return filters.order === "asc" ? "date_asc" : "date_desc";
+  }
+  
+  if (filters.sortBy === "random") {
+    return "random";
+  }
+  
+  // Valor padrão para outros casos
+  return `${filters.sortBy || "date"}_${filters.order || "desc"}`;
+}
+
 export function ArchivesFilter({
   filters,
   onChange,
@@ -40,28 +63,16 @@ export function ArchivesFilter({
   mainCategory,
   onReset
 }: ArchivesFilterProps) {
-  // Log dos filtros recebidos para debug
-  console.log("ArchivesFilter recebeu filtros:", filters);
-  console.log("ArchivesFilter recebeu categoria principal:", mainCategory);
   
-  // Se não houver categorias, criar exemplo
-  if (!categories || categories.length === 0) {
-    categories = [
-      { id: "internal1", name: "Exemplo Interno 1" },
-      { id: "internal2", name: "Exemplo Interno 2" }
-    ];
-  }
-  
-  // Validar cada categoria
+  // Obtenha as categorias válidas primeiro
   let validCategories = categories.filter(cat => {
-    // Verificar se a categoria existe e possui ID e nome válidos.
     if (!cat) return false;
     if (cat.id === undefined || cat.id === null) return false;
     if (!cat.name) return false;
     return true;
   });
 
-  // Se houver mainCategory, limitar as categorias às que se relacionam com ela
+  // Se houver mainCategory, filtre as categorias relacionadas
   if (mainCategory) {
     // Cria um conjunto para armazenar os IDs relacionados (pai, filho e neto)
     const relatedIds = new Set<string>();
@@ -85,87 +96,68 @@ export function ArchivesFilter({
       return relatedIds.has(catIdStr) || relatedIds.has(parentStr);
     });
   }
-
-  // APLICAR A ORDENAÇÃO das categorias com base nos filtros
-  console.log("Aplicando ordenação nas categorias:", 
-    filters.sortBy, filters.order, 
-    "Total antes:", validCategories.length);
   
-  if (filters.sortBy === "title") {
-    console.log("Ordenando categorias pelo título!");
+  // Esta função é crucial para aplicar a ordenação corretamente
+  const applySort = (items: Category[], sortBy: string, order: 'asc' | 'desc') => {
+    // Clone o array para evitar mutação
+    const sorted = [...items];
     
-    // Clonar o array antes de ordenar para evitar mutação
-    validCategories = [...validCategories].sort((a, b) => {
-      const nameA = a.name.toLocaleLowerCase();
-      const nameB = b.name.toLocaleLowerCase();
-      
-      if (filters.order === 'asc') {
-        console.log(`Comparando: ${nameA} vs ${nameB}`);
-        return nameA.localeCompare(nameB);
-      } else {
-        return nameB.localeCompare(nameA);
-      }
-    });
     
-    console.log("Primeiras 3 categorias após ordenação:", 
+    if (sortBy === "title") {
+      return sorted.sort((a, b) => {
+        const titleA = (a.name || '').toLowerCase();
+        const titleB = (b.name || '').toLowerCase();
+        
+        // Log para debug
+        
+        if (order === "asc") {
+          return titleA.localeCompare(titleB);
+        } else {
+          return titleB.localeCompare(titleA);
+        }
+      });
+    }
+    
+    // Outros tipos de ordenação, se necessário
+    return sorted;
+  };
+  
+  // Aplique a ordenação após a filtragem
+  if (filters.sortBy && filters.order) {
+    validCategories = applySort(validCategories, filters.sortBy, filters.order);
       validCategories.slice(0, 3).map(c => c.name));
   }
   
-  // Opções de ordenação
-  const sortOptions = [
-    { value: "date_desc", label: "Mais recentes primeiro" },
-    { value: "date_asc", label: "Mais antigos primeiro" },
-    { value: "title_asc", label: "Título (A-Z)" },
-    { value: "title_desc", label: "Título (Z-A)" },
-    { value: "modified_desc", label: "Últimas atualizações" },
-    { value: "random", label: "Aleatório" },
-  ]
-
-  // Calcula o valor atual para o RadioGroup
-  const getCurrentSortValue = () => {
-    if (filters.sortBy === 'random') return 'random';
-    return `${filters.sortBy}_${filters.order}`;
-  }
-
-  // Modificar o método handleSortChange para garantir que ele está atualizando corretamente
+  // Função para manipular a mudança de opção de ordenação
   const handleSortChange = (value: string) => {
-    console.log("handleSortChange recebeu valor:", value);
     
-    let newFilters = {...filters};
-    
-    if (value === 'title_asc') {
-      console.log("Ordenando pelo título (A-Z)");
-      newFilters = {
+    // Para os casos específicos de título
+    if (value === "title_asc" || value === "title_desc") {
+      const order = value === "title_asc" ? "asc" : "desc";
+      
+      // Atualize os filtros explicitamente
+      const newFilters = {
         ...filters,
         sortBy: "title",
-        order: "asc"
+        order
       };
-    } 
-    else if (value === 'title_desc') {
-      console.log("Ordenando pelo título (Z-A)");
-      newFilters = {
-        ...filters,
-        sortBy: "title",
-        order: "desc" 
-      };
-    }
-    else {
-      // Outros valores como 'recent', 'oldest', 'random'
-      const parts = value.split('_');
-      if (parts.length === 2) {
-        const [sortBy, order] = parts;
-        newFilters = {
-          ...filters,
-          sortBy,
-          order: order as 'asc' | 'desc'
-        };
-      }
+      
+      onChange(newFilters);
+      return;
     }
     
-    console.log("Novos filtros após mudança:", newFilters);
-    onChange(newFilters);
+    // Para outras opções como data, etc.
+    const parts = value.split('_');
+    if (parts.length === 2) {
+      const [sortBy, order] = parts;
+      onChange({
+        ...filters,
+        sortBy,
+        order: order as 'asc' | 'desc'
+      });
+    }
   };
-
+  
   // Função para aplicar mudanças nos filtros de categoria
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
     // Certifica-se que categorias é sempre um array
@@ -206,10 +198,12 @@ export function ArchivesFilter({
         <h3 className="font-medium text-lg">Filtro por Ordenação</h3>
         
         <RadioGroup
-          value={getCurrentSortValue()}
+          value={getCurrentSortValue(filters)}
           onValueChange={handleSortChange}
           className="space-y-3"
         >
+          {/* Remova os itens de título A-Z e Z-A */}
+          
           {sortOptions.map(option => (
             <div key={option.value} className="flex items-center space-x-2">
               <RadioGroupItem value={option.value} id={`sort-${option.value}`} />
