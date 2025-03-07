@@ -168,7 +168,7 @@ export function Carousel() {
           ))}
         </AnimatePresence>
 
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
+        <div id="carousel-controls" className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
           <Button
             size="icon"
             variant="secondary"
@@ -200,40 +200,30 @@ export function Carousel() {
         </div>
       </div>
 
-      {/* Miniaturas com barras de progresso */}
       <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex space-x-4">
         {slides.map((slide, index) => (
           <div
             key={index}
-            className="relative w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden cursor-pointer transition-transform duration-300 hover:scale-105 group"
+            className={`relative w-20 h-20 cursor-pointer rounded overflow-hidden transition-transform duration-300 hover:scale-110 ${
+              index === activeIndex ? "ring-2 ring-primary" : ""
+            }`}
             onClick={() => handleThumbnailClick(index)}
           >
-            {/* Imagem da miniatura */}
             <Image
               src={slide.image}
               alt={slide.title}
               fill
-              className="object-cover transition-opacity duration-300 group-hover:opacity-70"
-              sizes="(max-width: 768px) 80px, 120px"
+              className="object-cover transition-opacity duration-300"
+              sizes="80px"
             />
-            
-            {/* Overlay do progresso */}
             <div
-              className={`absolute inset-0 bg-primary/30 transition-all duration-300 ${
-                index === activeIndex ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'
+              className={`absolute bottom-0 left-0 h-1 rounded-full ${
+                index === activeIndex ? "progress-gradient" : "bg-white/30"
               }`}
               style={{
-                clipPath: index === activeIndex 
-                  ? `inset(0 ${100 - progress}% 0 0)`
-                  : 'inset(0 100% 0 0)',
+                width: index === activeIndex ? `${progress}%` : "100%",
+                transition: index === activeIndex ? "width 0.3s linear" : "none",
               }}
-            />
-            
-            {/* Borda ativa */}
-            <div
-              className={`absolute inset-0 border-2 border-transparent ${
-                index === activeIndex ? 'border-primary' : ''
-              }`}
             />
           </div>
         ))}

@@ -218,7 +218,7 @@ export function TutorialOverlay({ pageKey }: TutorialOverlayProps) {
       <Button 
         variant="outline" 
         size="sm"
-        className="absolute top-4 right-4 text-foreground border-border hover:bg-primary/10 flex gap-2 items-center transition-all"
+        className="absolute top-4 mt-16 right-4 text-foreground border-border hover:bg-primary/10 flex gap-2 items-center transition-all"
         onClick={skipTutorial}
       >
         <XCircle className="h-4 w-4 md:mr-1" />

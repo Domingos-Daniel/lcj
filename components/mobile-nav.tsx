@@ -17,7 +17,7 @@ export function MobileNav({ currentPath }: MobileNavProps) {
     <Sheet>
       <SheetTrigger asChild>
         <Button 
-          id="mobile-menu-button" 
+          id="mobile-menu-button" // Mudamos para um ID único
           variant="ghost" 
           size="icon" 
           className="md:hidden"
@@ -34,10 +34,11 @@ export function MobileNav({ currentPath }: MobileNavProps) {
                 // Direct link if href is provided and no items
                 <Link
                   href={section.href}
+                  id="dropdown-menu"
                   className={cn(
                     "font-medium hover:text-primary",
                     currentPath === section.href && "text-primary"
-                  )}
+                  )} 
                 >
                   {section.title}
                 </Link>
@@ -57,7 +58,7 @@ export function MobileNav({ currentPath }: MobileNavProps) {
                       className={cn(
                         "text-muted-foreground hover:text-primary",
                         currentPath === item.href && "text-primary font-medium",
-                      )}
+                      )} 
                     >
                       {item.title}
                     </Link>
