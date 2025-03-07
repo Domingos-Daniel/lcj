@@ -1,8 +1,8 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { TutorialOverlay } from "@/components/tutorials/tutorial-overlay"
 import { PostViewLayout } from "@/components/archives/post-view-layout"
 import { getPostById } from "@/lib/data-service"
+import { PostViewTutorial } from "@/components/tutorials/post-view-tutorial"
 
 interface PostPageProps {
   params: {
@@ -29,14 +29,8 @@ export async function generateMetadata({ params }: PostPageProps): Promise<Metad
 }
 
 export default async function PostPage({ params }: PostPageProps) {
-  // Para debug, vamos logar os parâmetros recebidos
-  //console.log("Parâmetros da página:", params);
-  
   // Buscar o post usando o ID
   const post = await getPostById(params.postId)
-  
-  // Log para debug
-  //console.log("Post encontrado:", post ? "Sim" : "Não");
   
   // Se não encontrar o post, mostrar 404
   if (!post) {
@@ -46,6 +40,7 @@ export default async function PostPage({ params }: PostPageProps) {
   return (
     <>
       <PostViewLayout post={post} categoryId={params.categoryId} />
+      <PostViewTutorial />
     </>
   )
 }
