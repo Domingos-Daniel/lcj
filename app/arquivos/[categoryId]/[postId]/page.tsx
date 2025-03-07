@@ -1,0 +1,52 @@
+import { Metadata } from "next"
+import { notFound } from "next/navigation"
+import { TutorialOverlay } from "@/components/tutorials/tutorial-overlay"
+import { PostViewLayout } from "@/components/archives/post-view-layout"
+import { getPostById } from "@/lib/data-service"
+
+interface PostPageProps {
+  params: {
+    categoryId: string
+    postId: string
+  }
+}
+
+// Gerar metadata dinâmicos baseados no post
+export async function generateMetadata({ params }: PostPageProps): Promise<Metadata> {
+  const post = await getPostById(params.postId)
+  
+  if (!post) {
+    return {
+      title: "Post não encontrado",
+      description: "O conteúdo jurídico que você procura não foi encontrado"
+    }
+  }
+  
+  return {
+    title: `${post.title} | LCJ`,
+    description: post.excerpt || "Conteúdo jurídico detalhado da Linguagem Claríssima Jurídica",
+  }
+}
+
+export default async function PostPage({ params }: PostPageProps) {
+  // Para debug, vamos logar os parâmetros recebidos
+  console.log("Parâmetros da página:", params);
+  
+  // Buscar o post usando o ID
+  const post = await getPostById(params.postId)
+  
+  // Log para debug
+  console.log("Post encontrado:", post ? "Sim" : "Não");
+  
+  // Se não encontrar o post, mostrar 404
+  if (!post) {
+    notFound()
+  }
+  
+  return (
+    <>
+      <TutorialOverlay pageKey="post" />
+      <PostViewLayout post={post} categoryId={params.categoryId} />
+    </>
+  )
+}

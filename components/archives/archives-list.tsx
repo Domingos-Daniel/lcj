@@ -193,6 +193,23 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
     
   }
 
+  // Adicione esta função após a função debugArchiveObject
+
+function getArchiveCategory(archive: Archive): string | number {
+  // Primeiro tenta pegar a primeira categoria se for um array
+  if (Array.isArray(archive.categories) && archive.categories.length > 0) {
+    return archive.categories[0];
+  }
+  
+  // Caso contrário, usa a propriedade category se estiver disponível
+  if (archive.category !== undefined) {
+    return archive.category;
+  }
+  
+  // Fallback para garantir que sempre temos um valor válido
+  return "geral";
+}
+
   // The rest of your component remains the same
   // Handle loading state
   if (isLoading) {
@@ -404,7 +421,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                 </p>
                 
                 <div className="mt-4 pt-3 border-t">
-                  <Link href={archive.fileUrl || `/arquivo/${archive.id}`}>
+                  <Link href={`/arquivos/${getArchiveCategory(archive)}/${archive.id}`}>
                     <Button 
                       variant="outline" 
                       className="w-full flex justify-between items-center"
@@ -519,7 +536,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
                     )}
                   </div>
                   
-                  <Link href={archive.fileUrl || `/arquivo/${archive.id}`}>
+                  <Link href={`/arquivos/${getArchiveCategory(archive)}/${archive.id}`}>
                     <Button 
                       variant="default" 
                       size="sm"

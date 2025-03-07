@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fs from 'fs';
 import path from 'path'
 import axios from 'axios';
 import { fetchPosts, fetchCategoryPosts } from '@/utils/api'
@@ -1950,3 +1950,411 @@ export async function getAllCategoriesForAPI() {
     return [];
   }
 }
+
+// Modifique a função getPostById para buscar do database.json
+export async function getPostById(postId: string) {
+  console.log(`Buscando post com ID: ${postId}`);
+  try {
+    // Primeiro, tente buscar do banco de dados local
+    const db = initializeDatabase();
+    
+    // Estratégia 1: Procurar no array allPosts se existir
+    if (db.allPosts && Array.isArray(db.allPosts)) {
+      const foundPost = db.allPosts.find(post => 
+        String(post.id) === String(postId) || 
+        post.slug === postId
+      );
+      
+      if (foundPost) {
+        console.log(`✅ Post encontrado no array allPosts: ${foundPost.title?.rendered || foundPost.title}`);
+        return formatPostForDisplay(foundPost);
+      }
+    }
+    
+    // Estratégia 2: Procurar em todas as categorias
+    if (db.categories) {
+      for (const categoryId in db.categories) {
+        if (db.categories[categoryId]?.posts && Array.isArray(db.categories[categoryId].posts)) {
+          const foundPost = db.categories[categoryId].posts.find(post => 
+            String(post.id) === String(postId) || 
+            post.slug === postId
+          );
+          
+          if (foundPost) {
+            console.log(`✅ Post encontrado na categoria ${categoryId}: ${foundPost.title?.rendered || foundPost.title}`);
+            
+            // Adicionar informação da categoria
+            const enhancedPost = {
+              ...foundPost,
+              category: {
+                id: categoryId,
+                name: db.categories[categoryId]?.info?.name || `Categoria ${categoryId}`,
+                slug: db.categories[categoryId]?.info?.slug || categoryId
+              }
+            };
+            
+            return formatPostForDisplay(enhancedPost);
+          }
+        }
+      }
+    }
+    
+    // Se não encontrado, busque da API
+    console.log(`⚠️ Post não encontrado localmente, tentando API... (ID: ${postId})`);
+    
+    try {
+      // Tente buscar por ID primeiro
+      let response;
+      
+      // Se parece ser um slug (não é somente número)
+      if (isNaN(Number(postId)) || postId.includes('-')) {
+        response = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts`, {
+          params: {
+            slug: postId
+          }
+        });
+      } else {
+        // Tente pelo ID
+        response = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts/${postId}`);
+      }
+      
+      if (response.data) {
+        const apiPost = Array.isArray(response.data) ? response.data[0] : response.data;
+        
+        if (apiPost && apiPost.id) {
+          console.log(`✅ Post encontrado na API: ${apiPost.title?.rendered || apiPost.title}`);
+          
+          // Busque a categoria
+          let category = { id: "", name: "Categoria", slug: "" };
+          if (apiPost.categories && apiPost.categories.length > 0) {
+            try {
+              const categoryId = apiPost.categories[0];
+              const categoryResponse = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/categories/${categoryId}`);
+              if (categoryResponse.data && categoryResponse.data.id) {
+                category = {
+                  id: categoryResponse.data.id,
+                  name: categoryResponse.data.name,
+                  slug: categoryResponse.data.slug
+                };
+              }
+            } catch (catError) {
+              console.error("Erro ao buscar categoria do post:", catError);
+            }
+          }
+          
+          // Adicionar categoria e formatar
+          const enhancedApiPost = {
+            ...apiPost,
+            category
+          };
+          
+          return formatPostForDisplay(enhancedApiPost);
+        }
+      }
+    } catch (apiError) {
+      console.error("Erro ao buscar post da API:", apiError);
+    }
+    
+    // Se ainda não encontrou, retorne um post genérico para evitar erro 404
+    console.log(`❌ Post não encontrado em nenhuma fonte. Criando post genérico.`);
+    return {
+      id: postId,
+      title: `Conteúdo ${postId}`,
+      excerpt: "Este conteúdo está em desenvolvimento.",
+      content: `<p>O conteúdo com identificador "${postId}" está em fase de desenvolvimento.</p><p>Em breve, mais informações estarão disponíveis aqui.</p>`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      category: { id: "0", name: "Geral", slug: "geral" },
+      tags: ["Em desenvolvimento"],
+      views: 1,
+      likes: 0,
+      readingTime: "1 min de leitura",
+      relatedPosts: []
+    };
+    
+  } catch (error) {
+    console.error("Erro ao buscar o post:", error);
+    return null;
+  }
+}
+
+// Adicione esta função de formatação para padronizar os posts vindos de diferentes fontes
+function formatPostForDisplay(post: any) {
+  // Formato padronizado para exibição
+  return {
+    id: post.id,
+    slug: post.slug || "",
+    title: post.title?.rendered || post.title || "Sem título",
+    excerpt: post.excerpt?.rendered || post.excerpt || post.plainExcerpt || "",
+    content: post.content?.rendered || post.content || "",
+    createdAt: post.date || post.createdAt || new Date().toISOString(),
+    updatedAt: post.modified || post.updatedAt || new Date().toISOString(),
+    author: post.author_name || "Autor",
+    category: post.category || { id: "0", name: "Geral", slug: "geral" },
+    tags: post.tags || [],
+    views: post.views || Math.floor(Math.random() * 100) + 1,
+    likes: post.likes || Math.floor(Math.random() * 20),
+    readingTime: post.readingTime || `${Math.ceil((post.content?.rendered?.length || post.content?.length || 1000) / 2000)} min de leitura`,
+    
+    // Construir posts relacionados
+    relatedPosts: buildRelatedPosts(post)
+  };
+}
+
+// Função para construir posts relacionados
+function buildRelatedPosts(post: any) {
+  // Se já tiver posts relacionados, use-os
+  if (post.relatedPosts && Array.isArray(post.relatedPosts) && post.relatedPosts.length > 0) {
+    return post.relatedPosts;
+  }
+  
+  // Tente encontrar posts da mesma categoria
+  try {
+    const db = initializeDatabase();
+    const categoryId = post.category?.id || (post.categories && post.categories[0]);
+    
+    if (categoryId && db.categories && db.categories[categoryId]?.posts) {
+      // Exclua o post atual e pegue até 3 posts aleatórios
+      const otherPosts = db.categories[categoryId].posts
+        .filter(p => String(p.id) !== String(post.id))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+        .map(p => ({
+          id: p.id,
+          slug: p.slug || "",
+          title: p.title?.rendered || p.title || "Post relacionado",
+          createdAt: p.date || p.createdAt || new Date().toISOString()
+        }));
+      
+      if (otherPosts.length > 0) {
+        return otherPosts;
+      }
+    }
+    
+    // Se não encontrou na mesma categoria, busque em todas as categorias
+    if (db.allPosts && Array.isArray(db.allPosts)) {
+      return db.allPosts
+        .filter(p => String(p.id) !== String(post.id))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+        .map(p => ({
+          id: p.id,
+          slug: p.slug || "",
+          title: p.title?.rendered || p.title || "Post relacionado",
+          createdAt: p.date || p.createdAt || new Date().toISOString()
+        }));
+    }
+  } catch (error) {
+    console.error("Erro ao construir posts relacionados:", error);
+  }
+  
+  // Fallback: retorne array vazio
+  return [];
+}
+
+// Função para obter um post por slug (para URLs amigáveis)
+export async function getPostBySlug(postSlug: string, categorySlug: string = "") {
+  console.log(`Buscando post com slug: ${postSlug} na categoria: ${categorySlug}`);
+  
+  try {
+    const db = initializeDatabase();
+    
+    // Primeiro procurar em todas as categorias (pode estar em qualquer uma)
+    if (db.categories) {
+      for (const categoryId in db.categories) {
+        if (db.categories[categoryId]?.posts && Array.isArray(db.categories[categoryId].posts)) {
+          const foundPost = db.categories[categoryId].posts.find(post => 
+            post.slug === postSlug || // Slug direto
+            slugify(post.title?.rendered || post.title || "") === postSlug // Slug do título
+          );
+          
+          if (foundPost) {
+            console.log(`✅ Post encontrado com slug "${postSlug}" na categoria ${categoryId}`);
+            
+            // Adicionar informação da categoria
+            const enhancedPost = {
+              ...foundPost,
+              category: {
+                id: categoryId,
+                name: db.categories[categoryId]?.info?.name || `Categoria ${categoryId}`,
+                slug: db.categories[categoryId]?.info?.slug || categoryId
+              }
+            };
+            
+            return formatPostForDisplay(enhancedPost);
+          }
+        }
+      }
+    }
+    
+    // Se não encontrou pelo slug, tentar encontrar pelo ID
+    return await getPostById(postSlug);
+    
+  } catch (error) {
+    console.error(`Erro ao buscar post pelo slug ${postSlug}:`, error);
+    return null;
+  }
+}
+
+// Função para converter string em slug (remover acentos e caracteres especiais)
+export function slugify(text: string): string {
+  if (!text) return '';
+  
+  // Se o texto for um objeto (como title.rendered do WordPress)
+  if (typeof text === 'object' && text !== null) {
+    // @ts-ignore
+    text = text.rendered || '';
+  }
+  
+  return String(text)
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/--+/g, '-')
+    .trim();
+}
+
+// Função para buscar categoria por slug
+export async function getCategoryBySlug(categorySlug: string) {
+  try {
+    // Verificar cache
+    if (memoryCache.categories[categorySlug]) {
+      return memoryCache.categories[categorySlug];
+    }
+    
+    // Buscar da API WordPress
+    const response = await axios.get(`${API_BASE_URL}/categories`, {
+      params: {
+        slug: categorySlug
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+      const category = response.data[0];
+      
+      // Guardar no cache
+      memoryCache.categories[categorySlug] = category;
+      memoryCache.categories[category.id] = category;
+      
+      return {
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        description: category.description
+      };
+    }
+    
+    // Fallback se não encontrar
+    return {
+      id: categorySlug,
+      name: categorySlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      slug: categorySlug
+    };
+    
+  } catch (error) {
+    console.error("Erro ao buscar categoria por slug:", error);
+    return {
+      id: categorySlug,
+      name: categorySlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      slug: categorySlug
+    };
+  }
+}
+
+// Função para formatar o post para exibição
+
+
+// Calcular tempo de leitura
+function calculateReadingTime(content: string): string {
+  // Remover HTML
+  const text = content.replace(/<\/?[^>]+(>|$)/g, "");
+  
+  // Calcular palavras (média de 200 palavras por minuto)
+  const words = text.split(/\s+/).length;
+  const minutes = Math.max(1, Math.ceil(words / 200));
+  
+  return `${minutes} min de leitura`;
+}
+
+// Buscar posts relacionados
+async function fetchRelatedPosts(post: any) {
+  try {
+    // Se já tem posts relacionados, retornar
+    if (post.relatedPosts && Array.isArray(post.relatedPosts) && post.relatedPosts.length > 0) {
+      return post.relatedPosts;
+    }
+    
+    // Buscar posts da mesma categoria
+    if (post.category && post.category.id) {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/posts`, {
+          params: {
+            categories: post.category.id,
+            exclude: post.id,
+            per_page: 3,
+            _fields: 'id,title,slug,date'
+          }
+        });
+        
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          return response.data.map(relatedPost => ({
+            id: relatedPost.id,
+            slug: relatedPost.slug,
+            title: relatedPost.title.rendered,
+            createdAt: relatedPost.date
+          }));
+        }
+      } catch (error) {
+        console.error("Erro ao buscar posts relacionados:", error);
+      }
+    }
+    
+    // Fallback: retornar array vazio
+    return [];
+  } catch (error) {
+    console.error("Erro ao buscar posts relacionados:", error);
+    return [];
+  }
+}
+
+// Função para pré-carregar posts recentes para o cache
+export async function prefetchRecentPosts() {
+  try {
+    if (Date.now() - memoryCache.lastFetch < 5 * 60 * 1000) { // 5 minutos
+      return; // Cache ainda válido
+    }
+    
+    console.log("🔄 Pré-carregando posts recentes...");
+    const response = await axios.get(`${API_BASE_URL}/posts`, {
+      params: {
+        per_page: 10,
+        _embed: true
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data)) {
+      console.log(`✅ Pré-carregados ${response.data.length} posts recentes`);
+      
+      response.data.forEach(post => {
+        memoryCache.posts[post.id] = post;
+        memoryCache.posts[post.slug] = post;
+      });
+      
+      memoryCache.lastFetch = Date.now();
+    }
+  } catch (error) {
+    console.error("Erro ao pré-carregar posts:", error);
+  }
+}
+
+// Iniciar pré-carregamento se estiver no cliente
+if (typeof window !== 'undefined') {
+  // Pré-carregar posts após 2 segundos da página carregar
+  setTimeout(() => {
+    prefetchRecentPosts();
+  }, 2000);
+}
+
