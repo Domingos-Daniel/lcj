@@ -40,6 +40,10 @@ export function ArchivesFilter({
   mainCategory,
   onReset
 }: ArchivesFilterProps) {
+  // Log dos filtros recebidos para debug
+  console.log("ArchivesFilter recebeu filtros:", filters);
+  console.log("ArchivesFilter recebeu categoria principal:", mainCategory);
+  
   // Se não houver categorias, criar exemplo
   if (!categories || categories.length === 0) {
     categories = [
@@ -49,18 +53,63 @@ export function ArchivesFilter({
   }
   
   // Validar cada categoria
-  const validCategories = categories.filter(cat => {
-    // Verificar se a categoria existe
+  let validCategories = categories.filter(cat => {
+    // Verificar se a categoria existe e possui ID e nome válidos.
     if (!cat) return false;
-    
-    // Verificar se tem ID
     if (cat.id === undefined || cat.id === null) return false;
-    
-    // Verificar se tem nome
     if (!cat.name) return false;
-    
     return true;
   });
+
+  // Se houver mainCategory, limitar as categorias às que se relacionam com ela
+  if (mainCategory) {
+    // Cria um conjunto para armazenar os IDs relacionados (pai, filho e neto)
+    const relatedIds = new Set<string>();
+    const mainCatId = String(mainCategory.id);
+    relatedIds.add(mainCatId);
+    
+    // Adiciona as subcategorias definidas em mainCategory (filhos)
+    if (mainCategory.subcategories) {
+      mainCategory.subcategories.forEach(sub => {
+        relatedIds.add(String(sub.id));
+      });
+    }
+    
+    // Agora, filtre as categorias válidas:
+    // Inclui:
+    // - Categorias cujo ID esteja no conjunto (pai ou filho já mapeados)
+    // - Categorias cujo campo parent seja igual a um dos IDs do conjunto (netos)
+    validCategories = validCategories.filter(cat => {
+      const catIdStr = String(cat.id);
+      const parentStr = (cat as any).parent ? String((cat as any).parent) : "";
+      return relatedIds.has(catIdStr) || relatedIds.has(parentStr);
+    });
+  }
+
+  // APLICAR A ORDENAÇÃO das categorias com base nos filtros
+  console.log("Aplicando ordenação nas categorias:", 
+    filters.sortBy, filters.order, 
+    "Total antes:", validCategories.length);
+  
+  if (filters.sortBy === "title") {
+    console.log("Ordenando categorias pelo título!");
+    
+    // Clonar o array antes de ordenar para evitar mutação
+    validCategories = [...validCategories].sort((a, b) => {
+      const nameA = a.name.toLocaleLowerCase();
+      const nameB = b.name.toLocaleLowerCase();
+      
+      if (filters.order === 'asc') {
+        console.log(`Comparando: ${nameA} vs ${nameB}`);
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
+    
+    console.log("Primeiras 3 categorias após ordenação:", 
+      validCategories.slice(0, 3).map(c => c.name));
+  }
   
   // Opções de ordenação
   const sortOptions = [
@@ -78,27 +127,44 @@ export function ArchivesFilter({
     return `${filters.sortBy}_${filters.order}`;
   }
 
-  // Processa a mudança na ordenação
+  // Modificar o método handleSortChange para garantir que ele está atualizando corretamente
   const handleSortChange = (value: string) => {
-    if (value === 'random') {
-      onChange({
+    console.log("handleSortChange recebeu valor:", value);
+    
+    let newFilters = {...filters};
+    
+    if (value === 'title_asc') {
+      console.log("Ordenando pelo título (A-Z)");
+      newFilters = {
         ...filters,
-        sortBy: 'random',
-        order: 'desc'  // Valor padrão para consistência
-      });
-    } else {
+        sortBy: "title",
+        order: "asc"
+      };
+    } 
+    else if (value === 'title_desc') {
+      console.log("Ordenando pelo título (Z-A)");
+      newFilters = {
+        ...filters,
+        sortBy: "title",
+        order: "desc" 
+      };
+    }
+    else {
+      // Outros valores como 'recent', 'oldest', 'random'
       const parts = value.split('_');
-      
       if (parts.length === 2) {
         const [sortBy, order] = parts;
-        onChange({
+        newFilters = {
           ...filters,
           sortBy,
           order: order as 'asc' | 'desc'
-        });
+        };
       }
     }
-  }
+    
+    console.log("Novos filtros após mudança:", newFilters);
+    onChange(newFilters);
+  };
 
   // Função para aplicar mudanças nos filtros de categoria
   const handleCategoryChange = (categoryId: string, checked: boolean) => {
