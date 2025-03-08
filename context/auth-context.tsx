@@ -43,18 +43,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Função para buscar detalhes do usuário do WordPress
   const fetchWpUserDetails = async (token: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/details`, {
+      console.log("Buscando detalhes do usuário com token:", token.substring(0, 10) + "...");
+      
+      // Usar token na URL em vez de no header
+      const url = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/details&token=${encodeURIComponent(token)}`;
+      console.log("URL completa:", url);
+      
+      const response = await fetch(url, {
+        method: "GET",
         headers: { 
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
+        credentials: "omit" // Não enviar cookies para evitar conflitos
       });
       
-      if (response.ok) {
-        const userData = await response.json();
-        return userData;
+      console.log("Status da resposta:", response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro ao buscar detalhes do usuário:", response.status, response.statusText);
+        console.error("Texto do erro:", errorText);
+        
+        if (response.status === 401) {
+          console.error("Token inválido ou expirado");
+          
+          // Testar o endpoint de debug para verificar o problema
+          try {
+            const debugResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/debug-token&token=${encodeURIComponent(token)}`
+            );
+            const debugData = await debugResponse.json();
+            console.log("Dados de debug do token:", debugData);
+          } catch (debugError) {
+            console.error("Erro ao verificar debug do token:", debugError);
+          }
+        }
+        return null;
       }
-      return null;
+      
+      const userData = await response.json();
+      console.log("Detalhes do usuário recebidos:", userData);
+      return userData;
     } catch (error) {
       console.error("Erro ao carregar detalhes do usuário:", error);
       return null;
@@ -181,17 +211,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("Tentando sincronizar usuário Google com WordPress");
             
             // Verificar se temos uma URL do WordPress válida
-            if (!process.env.NEXT_PUBLIC_WORDPRESS_URL || 
-                process.env.NEXT_PUBLIC_WORDPRESS_URL === window.location.origin) {
-              throw new Error("URL do WordPress não configurada ou inválida");
+            if (!process.env.NEXT_PUBLIC_WORDPRESS_URL) {
+              console.error("URL do WordPress não configurada");
+              throw new Error("URL do WordPress não configurada");
             }
             
-            const wpURL = new URL(process.env.NEXT_PUBLIC_WORDPRESS_URL);
-            const apiURL = `${wpURL.origin}/?rest_route=/lcj/v1/oauth/google`;
+            const wpURL = process.env.NEXT_PUBLIC_WORDPRESS_URL;
+            console.log("Chamando endpoint WordPress:", `${wpURL}/?rest_route=/lcj/v1/oauth/google`);
             
-            console.log("Chamando endpoint WordPress:", apiURL);
-            
-            const response = await fetch(apiURL, {
+            const response = await fetch(`${wpURL}/?rest_route=/lcj/v1/oauth/google`, {
               method: "POST",
               headers: { 
                 "Content-Type": "application/json",
@@ -202,36 +230,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 name: session.user?.name,
                 picture: session.user?.image,
               }),
+              // Adicionar timeout para não ficar esperando indefinidamente
+              signal: AbortSignal.timeout(10000) // 10 segundos de timeout
             });
             
-            // Verificar se a resposta parece HTML em vez de JSON
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.includes("text/html")) {
-              console.error("Recebido HTML em vez de JSON. A URL do WordPress está incorreta ou o endpoint não existe.");
-              throw new Error("Endpoint WordPress inválido - recebeu HTML");
-            }
+            // Log do código de status
+            console.log(`Status da resposta: ${response.status} ${response.statusText}`);
             
-            const responseText = await response.text();
-            console.log("Resposta do WordPress (texto):", responseText);
-            
+            // Verificar se tem resposta válida
+            let responseText;
             let data;
+            
             try {
+              responseText = await response.text();
+              console.log("Resposta do WordPress (texto):", responseText);
               data = JSON.parse(responseText);
               console.log("Resposta do WordPress (JSON):", data);
-            } catch (e) {
-              console.error("Erro ao analisar resposta JSON:", e);
-              data = { success: false, message: "Erro ao processar resposta" };
+            } catch (parseError) {
+              console.error("Erro ao analisar resposta JSON:", parseError);
+              
+              // Tentar determinar o erro com base no texto da resposta
+              if (responseText && responseText.includes("<!DOCTYPE html>")) {
+                throw new Error("O WordPress retornou HTML em vez de JSON. Verifique se a API REST está ativada e o endpoint está registrado corretamente.");
+              } else {
+                throw new Error("Erro ao processar resposta");
+              }
             }
             
-            if (response.ok && data.token) {
-              console.log("Token recebido do WordPress:", data.token.substring(0, 10) + "...");
+            // Verificar se teve sucesso
+            if (response.ok && data?.success && data?.token) {
+              console.log("Token recebido do WordPress");
               localStorage.setItem("wp_token", data.token);
               
               // Buscar dados atualizados do usuário
               const userData = await fetchWpUserDetails(data.token);
               
               if (userData) {
-                console.log("Dados do usuário recuperados do WordPress:", userData);
                 setUser({
                   id: userData.id,
                   name: userData.display_name || `${userData.first_name} ${userData.last_name}`.trim(),
@@ -254,34 +288,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   });
                   hasShownWelcomeToast.current = true;
                 }
-              } else {
-                console.error("Não foi possível recuperar dados do usuário após autenticação");
               }
             } else {
               console.error("Falha na sincronização com WordPress:", data?.message || "Erro desconhecido");
-              // Falha na sincronização com WP, usar dados da sessão apenas
-              setUser({
-                id: session.user?.id || session.user?.email!,
-                name: session.user?.name || '',
-                email: session.user?.email!,
-                avatar: session.user?.image || undefined
-              });
               
-              toast({
-                title: "Atenção",
-                description: "Login realizado, mas não foi possível sincronizar com o WordPress.",
-                variant: "destructive",
-                duration: 5000,
-              });
+              // Se o erro for 404, informar especificamente sobre o endpoint
+              if (response.status === 404) {
+                throw new Error(`Endpoint não encontrado (404). O endpoint /lcj/v1/oauth/google não está registrado no WordPress.`);
+              } else {
+                throw new Error(data?.message || "Erro desconhecido na sincronização");
+              }
             }
           } catch (error) {
             console.error("Erro ao sincronizar com WordPress:", error);
+            
             // Usar dados da sessão apenas
             setUser({
               id: session.user?.id || session.user?.email!,
               name: session.user?.name || '',
               email: session.user?.email!,
               avatar: session.user?.image || undefined
+            });
+            
+            // Mostrar toast com mensagem mais específica
+            toast({
+              title: "Atenção",
+              description: `Login realizado, mas não foi possível sincronizar com o WordPress. ${error instanceof Error ? error.message : ""}`,
+              variant: "destructive",
+              duration: 7000,
             });
           }
         }

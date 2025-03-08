@@ -167,35 +167,52 @@ export default function ProfilePage() {
     setIsSaving(true);
     
     try {
-      // Enviar dados atualizados para seu endpoint WP
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/update`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("wp_token")}`,
-        },
-        body: JSON.stringify({
-          first_name: userData.firstName,
-          last_name: userData.lastName,
-          email: userData.email,
-          phone: userData.phone,
-          gender: userData.gender,
-          bio: userData.bio,
-          current_password: userData.currentPassword || undefined,
-          new_password: userData.newPassword || undefined,
-        }),
-      });
+      const token = localStorage.getItem("wp_token");
+      if (!token) {
+        throw new Error("Token de autenticação não encontrado");
+      }
+      
+      // Usar token como parâmetro da URL
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/update&token=${encodeURIComponent(token)}`, 
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            email: userData.email,
+            phone: userData.phone,
+            gender: userData.gender,
+            bio: userData.bio,
+            current_password: userData.currentPassword || undefined,
+            new_password: userData.newPassword || undefined,
+          }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro na resposta:", errorText);
+        throw new Error(
+          response.status === 401 
+            ? "Sessão expirada. Por favor, faça login novamente." 
+            : `Erro ao atualizar perfil (${response.status})`
+        );
+      }
       
       const data = await response.json();
       
-      if (response.ok) {
+      if (data.success) {
         toast({
           title: "Perfil atualizado",
           description: "Suas informações foram salvas com sucesso!",
           variant: "success",
         });
         
-        // Limpar os campos de senha após salvar
+        // Limpar campos de senha
         setUserData((prev) => ({
           ...prev,
           currentPassword: "",
@@ -203,7 +220,7 @@ export default function ProfilePage() {
           confirmPassword: "",
         }));
         
-        // Recarregar dados do usuário para refletir as alterações
+        // Recarregar dados do usuário
         refreshUserData();
         
         setIsEditing(false);
@@ -555,6 +572,8 @@ export default function ProfilePage() {
           </Tabs>
         </div>
       </div>
+
+      
     </div>
   );
 }
