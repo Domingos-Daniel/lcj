@@ -1,33 +1,20 @@
-import type React from "react"
-import type { Metadata } from "next"
-import "./globals.css"
-import ClientLayout from "./ClientLayout"
-import { Inter } from 'next/font/google'
-import { ThemeProvider } from "@/components/theme-provider"
-import { BackToTop } from "@/components/back-to-top"
-import { ThemeSwitcher } from "@/components/theme-switcher"
-import { LoadingProvider } from "@/components/loading-provider"
-import { Preloader } from "@/components/preloader"
+import "./globals.css";
+import { Inter } from "next/font/google";
+import ClientProvider from "./ClientProvider";
+import { metadata } from "./metadata";
 
 const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-})
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
-export const metadata: Metadata = {
-  title: {
-    default: "LCJ Educa",
-    template: "%s | LCJ Educa"
-  },
-  description: "Plataforma de educação do Laboratório de Comunicação e Jornalismo",
-  generator: 'Deploy-IT'
-}
+export { metadata };
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
@@ -98,16 +85,8 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          <LoadingProvider>
-            <ClientLayout>
-              <Preloader />
-              {children}
-              <BackToTop />
-            </ClientLayout>
-          </LoadingProvider>
-        </ThemeProvider>
+        <ClientProvider>{children}</ClientProvider>
       </body>
     </html>
-  )
+  );
 }
