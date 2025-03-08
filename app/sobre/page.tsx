@@ -1,4 +1,5 @@
 import { MainNav } from "@/components/main-nav"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -7,20 +8,89 @@ import Link from "next/link"
 
 export default function SobrePage() {
   return (
-    <div className="min-h-screen">
-
-      <main className="">
-        {/* Hero Section */}
-        <section className="relative h-[400px] overflow-hidden">
-          <img src="/placeholder.svg?height=400&width=1920" alt="Office" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-black/50" />
+    <div className="min-h-screen bg-background">
+      <MainNav />
+      <main>
+        {/* Hero Section melhorada */}
+        <section className="relative h-[350px] overflow-hidden">
+          <Image 
+            src="https://lcj-educa.com/wp-content/uploads/2023/09/2.jpg" 
+            alt="Fundo" 
+            layout="fill"
+            objectFit="cover"
+            quality={90}
+            className="transition-all duration-300"
+          />
+          <div className="absolute inset-0 bg-black/70" />
           <div className="absolute inset-0 flex items-center">
             <div className="container mx-auto px-4 text-center text-white">
-              <h1 className="mb-4 text-4xl font-bold md:text-5xl">Quem Somos</h1>
-              <p className="mx-auto mb-8 max-w-2xl text-lg">
-                LCJ é uma plataforma inovadora dedicada a fornecer recursos jurídicos de alta qualidade para
-                profissionais e estudantes de direito.
+              <h1 className="mb-4 text-4xl font-bold md:text-5xl drop-shadow-lg">Quem Somos</h1>
+              <p className="mx-auto mb-6 max-w-2xl text-lg drop-shadow-md">
+                LCJ-Educa é uma plataforma inovadora dedicada a fornecer recursos jurídicos de alta qualidade para profissionais e estudantes de direito.
               </p>
+              <Button variant="default" className="mx-auto">
+                Saiba Mais
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        {/* Seção "SOBRE NÓS" aprimorada */}
+        <section className="py-16 px-10">
+          <div className="container mx-auto px-4">
+            <h2 className="mb-6 text-center text-3xl font-bold">SOBRE NÓS</h2>
+            <div className="grid gap-8 md:grid-cols-2 items-center">
+              <div>
+                <h3 className="mb-4 text-2xl font-bold">POR QUE O LCJ-EDUCA.COM?</h3>
+                <p className="mb-4 text-base text-muted-foreground">
+                  Com o lcj-educa.com é possível aprender o Direito sem sequer frequentar uma Faculdade de Direito. O LCJ auxilia estudantes de direito, advogados, juízes, procuradores e todos os operadores do Direito – e não só – a se familiarizarem com conteúdo jurídico de forma fácil, simples e nacional, proporcionando o conforto de sua residência.
+                </p>
+                <p className="mb-4 text-base text-muted-foreground">
+                  A apresentação de matérias, legislações e peças processuais com características totalmente angolanas facilita o trabalho dos operadores do Direito e dos estudantes.
+                </p>
+                <p className="text-base text-muted-foreground">
+                  Ajuda os cidadãos a estarem em dia com os seus direitos de uma forma fácil e simples.
+                </p>
+              </div>
+              <div className="relative h-[600px] w-[400px] mx-auto">
+                <Image 
+                  src="https://lcj-educa.com/wp-content/uploads/2024/09/Arnaldo-.jpg" 
+                  alt="Arnaldo" 
+                  layout="fill"
+                  objectFit="cover"
+                  quality={90}
+                  className="rounded-lg shadow-lg"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Nova Seção "SOBRE NÓS" adicional */}
+        <section className="py-16 px-10">
+          <div className="container mx-auto px-4">
+            <h2 className="mb-6 text-center text-3xl font-bold">SOBRE NÓS</h2>
+            <div className="grid gap-8 md:grid-cols-2 items-center">
+              <div className="relative h-[400px] w-full md:w-[500px] mx-auto">
+                <Image 
+                  src="./image4.jpeg" 
+                  alt="LCJ-educa" 
+                  layout="fill"
+                  objectFit="cover"
+                  quality={90}
+                  className="rounded-lg shadow-lg"
+                />
+              </div>
+              <div>
+                <h3 className="mb-4 text-2xl font-bold">O QUE É LCJ-educa.com?</h3>
+                <p className="mb-4 text-base text-muted-foreground">
+                  O lcj-educa.com, nomeadamente "laboratório de ciências Jurídicos", é um site que foi criado e desenvolvido pelo jurista "Arnaldo Leandro Gonga Miguel". É uma plataforma única e exclusiva que contém matérias de Direito e conteúdo Jurídico totalmente nacional!
+                </p>
+                <h3 className="mb-4 text-2xl font-bold">QUANDO FOI CRIADO O LCJ-educa.com?</h3>
+                <p className="text-base text-muted-foreground">
+                  O lcj-educa.com foi criado e elaborado em 2017 pelo jurista ARNALDO MIGUEL, com o objectivo de albergar conteúdos de cunho jurídico, tendo o seu desenvolvimento substancial expandido em 2019.
+                </p>
+              </div>
             </div>
           </div>
         </section>
