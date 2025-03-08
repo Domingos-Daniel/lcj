@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Header } from "@/components/Header"; // Verifique o nome do arquivo
+import { Header } from "@/components/header"; // Verifique o nome do arquivo
 import { Preloader } from "@/components/preloader";
 import { Footer } from "@/components/footer";
 

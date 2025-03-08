@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, Mail, Calendar, Edit, Save, Lock, Phone, Eye, EyeOff } from "lucide-react";
+import { Loader2, User, Mail, Calendar, Edit, Save, Phone, Eye, EyeOff } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -22,31 +22,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 
 // Função para verificar a força da senha
-function getPasswordStrength(password: string): {strength: number, feedback: string} {
+function getPasswordStrength(password: string): { strength: number; feedback: string } {
   if (!password) return { strength: 0, feedback: "Insira uma senha" };
   
   let strength = 0;
   let feedback = "";
   
-  // Comprimento mínimo de 8 caracteres
+  // Cada critério adiciona um valor – o total máximo é limitado a 100
   if (password.length >= 8) strength += 25;
-  
-  // Contém letras minúsculas
   if (/[a-z]/.test(password)) strength += 25;
-  
-  // Contém letras maiúsculas
   if (/[A-Z]/.test(password)) strength += 25;
-  
-  // Contém números
   if (/[0-9]/.test(password)) strength += 25;
-  
-  // Contém caracteres especiais
+  // Opcional: critério para caracteres especiais
   if (/[^A-Za-z0-9]/.test(password)) strength += 25;
   
-  // Limitar a força máxima a 100
   strength = Math.min(strength, 100);
   
-  // Feedback com base na força
   if (strength < 25) {
     feedback = "Muito fraca";
   } else if (strength < 50) {
@@ -61,9 +52,10 @@ function getPasswordStrength(password: string): {strength: number, feedback: str
 }
 
 export default function ProfilePage() {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, refreshUserData } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -81,22 +73,16 @@ export default function ProfilePage() {
     confirmPassword: "",
   });
   
-  // Estado para força da senha
   const [passwordStrength, setPasswordStrength] = useState({ strength: 0, feedback: "" });
-  
-  // Calcular nome completo
   const fullName = `${userData.firstName} ${userData.lastName}`.trim();
   
+  // Carregar dados do usuário no estado
   useEffect(() => {
     if (user) {
-      // Separar nome completo em primeiro nome e sobrenome
-      const nameParts = user.name ? user.name.split(" ") : ["", ""];
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-      
+      const nameParts = user.name ? user.name.split(" ") : [""];
       setUserData({
-        firstName: firstName,
-        lastName: lastName,
+        firstName: user.firstName || nameParts[0] || "",
+        lastName: user.lastName || nameParts.slice(1).join(" ") || "",
         email: user.email || "",
         bio: user.bio || "Ainda não há informações de biografia.",
         phone: user.phone || "",
@@ -105,10 +91,13 @@ export default function ProfilePage() {
         newPassword: "",
         confirmPassword: "",
       });
+    } else {
+      // Se não temos dados do usuário ainda, tentar atualizar
+      refreshUserData();
     }
-  }, [user]);
+  }, [user, refreshUserData]);
   
-  // Atualizar força da senha quando a senha muda
+  // Atualizar força da senha quando a nova senha muda
   useEffect(() => {
     setPasswordStrength(getPasswordStrength(userData.newPassword));
   }, [userData.newPassword]);
@@ -129,12 +118,12 @@ export default function ProfilePage() {
   };
   
   const validateForm = () => {
-    // Validar senha se estiver sendo alterada
+    // Se estiver alterando a senha, validar força e confirmação
     if (userData.newPassword) {
       if (passwordStrength.strength < 50) {
         toast({
           title: "Senha fraca",
-          description: "Por favor, escolha uma senha mais forte (combine maiúsculas, minúsculas, números e caracteres especiais).",
+          description: "Escolha uma senha mais forte (use letras maiúsculas, minúsculas, números e caracteres especiais).",
           variant: "destructive",
         });
         return false;
@@ -143,7 +132,7 @@ export default function ProfilePage() {
       if (userData.newPassword !== userData.confirmPassword) {
         toast({
           title: "Senhas não coincidem",
-          description: "A nova senha e a confirmação devem ser idênticas.",
+          description: "A nova senha e a confirmação devem ser iguais.",
           variant: "destructive",
         });
         return false;
@@ -152,18 +141,18 @@ export default function ProfilePage() {
       if (!userData.currentPassword) {
         toast({
           title: "Senha atual necessária",
-          description: "Por favor, digite sua senha atual para confirmar as alterações.",
+          description: "Digite sua senha atual para confirmar as alterações.",
           variant: "destructive",
         });
         return false;
       }
     }
     
-    // Validar telefone (formato angolano)
+    // Validar telefone (exemplo para formato angolano)
     if (userData.phone && !/^\+?244[9][1-9]\d{7}$/.test(userData.phone.replace(/\s/g, ''))) {
       toast({
-        title: "Formato de telefone inválido",
-        description: "Por favor, insira um número de telefone válido (formato angolano: +244 9XX XXX XXX).",
+        title: "Telefone inválido",
+        description: "Insira um número de telefone válido (ex: +244 9XX XXX XXX).",
         variant: "destructive",
       });
       return false;
@@ -178,8 +167,8 @@ export default function ProfilePage() {
     setIsSaving(true);
     
     try {
-      // Aqui você implementaria a lógica para salvar no WordPress via API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/lcj/v1/user/update`, {
+      // Enviar dados atualizados para seu endpoint WP
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/update`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -206,16 +195,16 @@ export default function ProfilePage() {
           variant: "success",
         });
         
-        // Atualizar usuário no contexto de auth
-        // Você precisaria implementar uma função para isso em seu AuthContext
-        
-        // Limpar campos de senha
-        setUserData(prev => ({
+        // Limpar os campos de senha após salvar
+        setUserData((prev) => ({
           ...prev,
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
         }));
+        
+        // Recarregar dados do usuário para refletir as alterações
+        refreshUserData();
         
         setIsEditing(false);
       } else {
@@ -223,8 +212,8 @@ export default function ProfilePage() {
       }
     } catch (error: any) {
       toast({
-        title: "Erro ao atualizar perfil",
-        description: error.message || "Ocorreu um erro ao salvar suas informações.",
+        title: "Erro",
+        description: error.message || "Ocorreu um erro ao atualizar seu perfil.",
         variant: "destructive",
       });
     } finally {
@@ -280,7 +269,9 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span className="text-sm">Membro desde {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
+                <span className="text-sm">
+                  Membro desde {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
+                </span>
               </div>
               {userData.phone && (
                 <div className="flex items-center gap-2 text-muted-foreground">
@@ -311,8 +302,8 @@ export default function ProfilePage() {
                     <CardTitle>Dados Pessoais</CardTitle>
                     <CardDescription>Atualize suas informações pessoais</CardDescription>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="icon"
                     onClick={() => setIsEditing(!isEditing)}
                   >
@@ -333,7 +324,6 @@ export default function ProfilePage() {
                         disabled={!isEditing}
                       />
                     </div>
-                    
                     <div className="grid gap-3">
                       <label className="text-sm font-medium" htmlFor="lastName">
                         Sobrenome
@@ -367,9 +357,9 @@ export default function ProfilePage() {
                       <label className="text-sm font-medium" htmlFor="gender">
                         Gênero
                       </label>
-                      <Select 
-                        value={userData.gender} 
-                        onValueChange={(value) => handleSelectChange(value, 'gender')}
+                      <Select
+                        value={userData.gender}
+                        onValueChange={(value) => handleSelectChange(value, "gender")}
                         disabled={!isEditing}
                       >
                         <SelectTrigger>
@@ -385,7 +375,6 @@ export default function ProfilePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
                     <div className="grid gap-3">
                       <label className="text-sm font-medium" htmlFor="phone">
                         Telefone
@@ -419,20 +408,22 @@ export default function ProfilePage() {
                 <CardFooter>
                   {isEditing && (
                     <div className="flex gap-2 w-full">
-                      <Button onClick={() => setIsEditing(false)} variant="outline" className="flex-1">
+                      <Button
+                        onClick={() => setIsEditing(false)}
+                        variant="outline"
+                        className="flex-1"
+                      >
                         Cancelar
                       </Button>
-                      <Button 
-                        onClick={handleSave} 
-                        className="flex-1"
-                        disabled={isSaving}
-                      >
+                      <Button onClick={handleSave} className="flex-1" disabled={isSaving}>
                         {isSaving ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Salvando...
                           </>
-                        ) : "Salvar Alterações"}
+                        ) : (
+                          "Salvar Alterações"
+                        )}
                       </Button>
                     </div>
                   )}
@@ -444,7 +435,7 @@ export default function ProfilePage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Segurança</CardTitle>
-                  <CardDescription>Gerencie sua senha e preferências de segurança</CardDescription>
+                  <CardDescription>Altere sua senha</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3">
@@ -505,8 +496,8 @@ export default function ProfilePage() {
                             {passwordStrength.feedback}
                           </span>
                         </div>
-                        <Progress 
-                          value={passwordStrength.strength} 
+                        <Progress
+                          value={passwordStrength.strength}
                           className={`h-1 ${getProgressColor(passwordStrength.strength)}`}
                         />
                         <ul className="text-xs space-y-1 text-muted-foreground mt-2">
@@ -532,11 +523,10 @@ export default function ProfilePage() {
                       type="password"
                       placeholder="Confirme sua nova senha"
                     />
-                    {userData.newPassword && userData.confirmPassword && 
-                      userData.newPassword !== userData.confirmPassword && (
-                        <p className="text-xs text-red-500">
-                          As senhas não coincidem
-                        </p>
+                    {userData.newPassword && userData.confirmPassword && userData.newPassword !== userData.confirmPassword && (
+                      <p className="text-xs text-red-500">
+                        As senhas não coincidem
+                      </p>
                     )}
                   </div>
                 </CardContent>
@@ -544,12 +534,12 @@ export default function ProfilePage() {
                   <Button 
                     onClick={handleSave}
                     className="w-full"
-                    disabled={isSaving || 
-                      (userData.newPassword && 
-                        (passwordStrength.strength < 50 || 
-                        userData.newPassword !== userData.confirmPassword || 
-                        !userData.currentPassword)
-                      )
+                    disabled={
+                      isSaving ||
+                      (userData.newPassword &&
+                        (passwordStrength.strength < 50 ||
+                        userData.newPassword !== userData.confirmPassword ||
+                        !userData.currentPassword))
                     }
                   >
                     {isSaving ? (

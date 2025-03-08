@@ -1,101 +1,316 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
+interface User {
+  id: string | number;
+  name: string;
+  email: string;
+  avatar?: string;
+  firstName?: string;
+  lastName?: string;
+  bio?: string;
+  phone?: string;
+  gender?: string;
+  createdAt?: string;
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: any | null;
+  user: User | null;
   login: (token: string, userData: any) => void;
   logout: () => void;
   loading: boolean;
-  updateProfile: (userData: any) => Promise<boolean>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { data: session, status } = useSession();
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Referências para evitar carregar múltiplas vezes e toasts duplicados
   const hasShownWelcomeToast = useRef(false);
+  const initialLoadComplete = useRef(false);
 
-  useEffect(() => {
+  // Função para buscar detalhes do usuário do WordPress
+  const fetchWpUserDetails = async (token: string) => {
     try {
-      const token = localStorage.getItem("wp_token");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/details`, {
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+      });
       
-      if (token) {
-        // Verificar a validade do token com o WordPress
-        fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/validate-token`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-          .then((res) => {
-            if (res.ok) return res.json();
-            throw new Error("Token inválido");
-          })
-          .then((data) => {
-            if (data.valid) {
-              setUser(data.user);
-              
-              // Mostrar toast apenas uma vez
-              if (!hasShownWelcomeToast.current) {
-                toast({
-                  title: "Bem-vindo de volta!",
-                  description: `Olá, ${data.user.name || "usuário"}!`,
-                  variant: "success",
-                  duration: 3000,
-                });
-                hasShownWelcomeToast.current = true;
-              }
-            } else {
-              localStorage.removeItem("wp_token");
-            }
-          })
-          .catch(() => {
-            localStorage.removeItem("wp_token");
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      } else if (session && status === "authenticated") {
-        // Se não temos token do WordPress mas temos uma sessão NextAuth
-        setUser({
-          id: session.user?.email,
-          name: session.user?.name,
-          email: session.user?.email,
-          avatar: session.user?.image,
-        });
+      if (response.ok) {
+        const userData = await response.json();
+        return userData;
+      }
+      return null;
+    } catch (error) {
+      console.error("Erro ao carregar detalhes do usuário:", error);
+      return null;
+    }
+  };
+
+  // Atualizar dados do usuário
+  const refreshUserData = async () => {
+    try {
+      // Verificar se temos token do WordPress (direto ou da sessão NextAuth)
+      const wpToken = localStorage.getItem("wp_token") || session?.user?.wpToken;
+      
+      if (wpToken) {
+        const userData = await fetchWpUserDetails(wpToken);
         
-        // Mostrar toast apenas uma vez
-        if (!hasShownWelcomeToast.current) {
-          toast({
-            title: "Login bem-sucedido!",
-            description: `Bem-vindo, ${session.user?.name || "usuário"}!`,
-            variant: "success",
-            duration: 3000,
+        if (userData) {
+          setUser({
+            id: userData.id,
+            name: userData.display_name || `${userData.first_name} ${userData.last_name}`.trim(),
+            email: userData.email,
+            avatar: userData.avatar,
+            firstName: userData.first_name,
+            lastName: userData.last_name,
+            bio: userData.description,
+            phone: userData.phone,
+            gender: userData.gender,
+            createdAt: userData.registered || new Date().toISOString()
           });
-          hasShownWelcomeToast.current = true;
         }
-        
-        setLoading(false);
-      } else {
-        setLoading(false);
+      } else if (session?.user) {
+        // Se não temos dados do WP mas temos sessão, usar dados da sessão
+        setUser({
+          id: session.user.id || session.user.email!,
+          name: session.user.name || '',
+          email: session.user.email!,
+          avatar: session.user.image || undefined
+        });
       }
     } catch (error) {
-      console.error("Erro no contexto de autenticação:", error);
-      setLoading(false);
+      console.error("Erro ao atualizar dados do usuário:", error);
     }
-  }, [session?.user?.email]);
+  };
+
+  // Efeito para carregar dados do usuário no início
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (initialLoadComplete.current) return;
+      if (status === "loading") return;
+      
+      try {
+        setLoading(true);
+        
+        // Verificar token WordPress no localStorage
+        const wpToken = localStorage.getItem("wp_token");
+        
+        // Se temos token WordPress
+        if (wpToken) {
+          const userData = await fetchWpUserDetails(wpToken);
+          
+          if (userData) {
+            setUser({
+              id: userData.id,
+              name: userData.display_name || `${userData.first_name} ${userData.last_name}`.trim(),
+              email: userData.email,
+              avatar: userData.avatar,
+              firstName: userData.first_name,
+              lastName: userData.last_name,
+              bio: userData.description,
+              phone: userData.phone,
+              gender: userData.gender,
+              createdAt: userData.registered || new Date().toISOString()
+            });
+            
+            if (!hasShownWelcomeToast.current) {
+              toast({
+                title: "Bem-vindo de volta!",
+                description: `Olá, ${userData.display_name || userData.first_name || "usuário"}!`,
+                variant: "success",
+                duration: 3000,
+              });
+              hasShownWelcomeToast.current = true;
+            }
+          } else {
+            // Token inválido
+            localStorage.removeItem("wp_token");
+          }
+        }
+        // Se temos sessão NextAuth com token WordPress
+        else if (session?.user?.wpToken) {
+          // Salvar token no localStorage para uso futuro
+          localStorage.setItem("wp_token", session.user.wpToken);
+          
+          const userData = await fetchWpUserDetails(session.user.wpToken);
+          
+          if (userData) {
+            setUser({
+              id: userData.id,
+              name: userData.display_name || `${userData.first_name} ${userData.last_name}`.trim(),
+              email: userData.email,
+              avatar: userData.avatar,
+              firstName: userData.first_name,
+              lastName: userData.last_name,
+              bio: userData.description,
+              phone: userData.phone,
+              gender: userData.gender,
+              createdAt: userData.registered || new Date().toISOString()
+            });
+            
+            if (!hasShownWelcomeToast.current) {
+              toast({
+                title: "Login bem-sucedido!",
+                description: `Bem-vindo, ${userData.display_name || userData.first_name || "usuário"}!`,
+                variant: "success",
+                duration: 3000,
+              });
+              hasShownWelcomeToast.current = true;
+            }
+          }
+        }
+        // Se só temos sessão NextAuth sem token WordPress
+        else if (session && status === "authenticated") {
+          // Tentar sincronizar com WordPress
+          try {
+            console.log("Tentando sincronizar usuário Google com WordPress");
+            
+            // Verificar se temos uma URL do WordPress válida
+            if (!process.env.NEXT_PUBLIC_WORDPRESS_URL || 
+                process.env.NEXT_PUBLIC_WORDPRESS_URL === window.location.origin) {
+              throw new Error("URL do WordPress não configurada ou inválida");
+            }
+            
+            const wpURL = new URL(process.env.NEXT_PUBLIC_WORDPRESS_URL);
+            const apiURL = `${wpURL.origin}/?rest_route=/lcj/v1/oauth/google`;
+            
+            console.log("Chamando endpoint WordPress:", apiURL);
+            
+            const response = await fetch(apiURL, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+              },
+              body: JSON.stringify({
+                email: session.user?.email,
+                name: session.user?.name,
+                picture: session.user?.image,
+              }),
+            });
+            
+            // Verificar se a resposta parece HTML em vez de JSON
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("text/html")) {
+              console.error("Recebido HTML em vez de JSON. A URL do WordPress está incorreta ou o endpoint não existe.");
+              throw new Error("Endpoint WordPress inválido - recebeu HTML");
+            }
+            
+            const responseText = await response.text();
+            console.log("Resposta do WordPress (texto):", responseText);
+            
+            let data;
+            try {
+              data = JSON.parse(responseText);
+              console.log("Resposta do WordPress (JSON):", data);
+            } catch (e) {
+              console.error("Erro ao analisar resposta JSON:", e);
+              data = { success: false, message: "Erro ao processar resposta" };
+            }
+            
+            if (response.ok && data.token) {
+              console.log("Token recebido do WordPress:", data.token.substring(0, 10) + "...");
+              localStorage.setItem("wp_token", data.token);
+              
+              // Buscar dados atualizados do usuário
+              const userData = await fetchWpUserDetails(data.token);
+              
+              if (userData) {
+                console.log("Dados do usuário recuperados do WordPress:", userData);
+                setUser({
+                  id: userData.id,
+                  name: userData.display_name || `${userData.first_name} ${userData.last_name}`.trim(),
+                  email: userData.email,
+                  avatar: userData.avatar,
+                  firstName: userData.first_name,
+                  lastName: userData.last_name,
+                  bio: userData.description,
+                  phone: userData.phone,
+                  gender: userData.gender,
+                  createdAt: userData.registered || new Date().toISOString()
+                });
+                
+                if (!hasShownWelcomeToast.current) {
+                  toast({
+                    title: "Login bem-sucedido!",
+                    description: `Bem-vindo, ${userData.display_name || userData.first_name || "usuário"}!`,
+                    variant: "success",
+                    duration: 3000,
+                  });
+                  hasShownWelcomeToast.current = true;
+                }
+              } else {
+                console.error("Não foi possível recuperar dados do usuário após autenticação");
+              }
+            } else {
+              console.error("Falha na sincronização com WordPress:", data?.message || "Erro desconhecido");
+              // Falha na sincronização com WP, usar dados da sessão apenas
+              setUser({
+                id: session.user?.id || session.user?.email!,
+                name: session.user?.name || '',
+                email: session.user?.email!,
+                avatar: session.user?.image || undefined
+              });
+              
+              toast({
+                title: "Atenção",
+                description: "Login realizado, mas não foi possível sincronizar com o WordPress.",
+                variant: "destructive",
+                duration: 5000,
+              });
+            }
+          } catch (error) {
+            console.error("Erro ao sincronizar com WordPress:", error);
+            // Usar dados da sessão apenas
+            setUser({
+              id: session.user?.id || session.user?.email!,
+              name: session.user?.name || '',
+              email: session.user?.email!,
+              avatar: session.user?.image || undefined
+            });
+          }
+        }
+        
+        initialLoadComplete.current = true;
+      } catch (error) {
+        console.error("Erro no contexto de autenticação:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, [session, status, toast]);
 
   const login = (token: string, userData: any) => {
     localStorage.setItem("wp_token", token);
-    setUser(userData);
+    setUser({
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      avatar: userData.avatar,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      bio: userData.bio,
+      phone: userData.phone,
+      gender: userData.gender,
+      createdAt: userData.registered || new Date().toISOString()
+    });
     
     toast({
       title: "Login realizado com sucesso!",
@@ -111,9 +326,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem("wp_token");
     setUser(null);
-    hasShownWelcomeToast.current = false;
+    hasShownWelcomeToast.current = false; // Redefinir para permitir toast no próximo login
+    initialLoadComplete.current = false; // Redefinir para recarregar dados no próximo login
     
-    // Se usando NextAuth, você também precisa chamar signOut()
+    // Se usando NextAuth, também encerrar sessão
     signOut({ redirect: false }).then(() => {
       toast({
         title: "Sessão encerrada",
@@ -125,68 +341,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       router.push("/");
     });
   };
-  
-  // Função para atualizar perfil
-  const updateProfile = async (userData: any): Promise<boolean> => {
-    try {
-      const token = localStorage.getItem("wp_token");
-      
-      // Se temos um token WordPress
-      if (token) {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/update-profile`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(userData)
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          setUser(prev => ({ ...prev, ...userData }));
-          toast({
-            title: "Perfil atualizado",
-            description: "Suas informações foram salvas com sucesso!",
-            variant: "success",
-            duration: 3000,
-          });
-          return true;
-        } else {
-          toast({
-            title: "Erro",
-            description: data.message || "Não foi possível atualizar o perfil",
-            variant: "destructive",
-            duration: 3000,
-          });
-          return false;
-        }
-      } else if (session) {
-        // Para usuários Google, podemos apenas atualizar o estado local
-        // já que não podemos alterar informações do Google
-        setUser(prev => ({ ...prev, ...userData }));
-        toast({
-          title: "Perfil atualizado",
-          description: "Suas informações foram salvas localmente",
-          variant: "success",
-          duration: 3000,
-        });
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error("Erro ao atualizar perfil:", error);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao atualizar o perfil",
-        variant: "destructive",
-        duration: 3000,
-      });
-      return false;
-    }
-  };
 
   return (
     <AuthContext.Provider
@@ -196,7 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         loading,
-        updateProfile
+        refreshUserData
       }}
     >
       {children}

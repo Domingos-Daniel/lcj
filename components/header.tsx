@@ -71,15 +71,19 @@ export function Header() {
           {status === "authenticated" ? (
             <div className="flex items-center gap-4">
               {session.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt="Avatar"
-                  className="h-8 w-8 rounded-full cursor-pointer"
-                />
+                <Link href={`/profile`}>
+                  <img
+                    src={session.user.image}
+                    alt="Avatar"
+                    className="h-8 w-8 rounded-full cursor-pointer"
+                  />
+                </Link>
               ) : (
-                <div className="h-8 w-8 cursor-pointer rounded-full bg-primary flex items-center justify-center text-white">
-                  {session.user?.email?.charAt(0).toUpperCase()}
-                </div>
+                <Link href={`/profile`}>
+                  <div className="h-8 w-8 cursor-pointer rounded-full bg-primary flex items-center justify-center text-white">
+                    {session.user?.email?.charAt(0).toUpperCase()}
+                  </div>
+                </Link>
               )}
               <button
                 className="text-sm text-gray-700 hover:underline"
