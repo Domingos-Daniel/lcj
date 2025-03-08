@@ -1,20 +1,22 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { MainNav } from "@/components/main-nav"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { 
   Check, AlertCircle, Phone, Mail, CreditCard, MessageSquare,
   User, Lock, AtSign, Calendar, Smartphone, ShieldCheck, BadgeCheck
-} from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import Link from "next/link"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Link from "next/link";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
+import { signIn } from "next-auth/react";
+import { useToast } from "@/hooks/use-toast";
 
 const plans = [
   {
@@ -45,20 +47,49 @@ const plans = [
 ]
 
 export default function CadastramentoPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { toast } = useToast();
   
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
     
     // Simular processo de cadastro
     setTimeout(() => {
-      setLoading(false)
+      setLoading(false);
       // Redirecionar para a página de autenticação
-      router.push('./auth')
-    }, 1500)
-  }
+      router.push('./auth');
+    }, 1500);
+  };
+  
+  // Função para cadastro com Google
+  const handleGoogleSignup = async () => {
+    setGoogleLoading(true);
+    try {
+      toast({
+        title: "Redirecionando...",
+        description: "Você será redirecionado para o Google para criar sua conta",
+        duration: 3000,
+      });
+      
+      await signIn("google", { 
+        callbackUrl: "/profile" 
+      });
+    } catch (error) {
+      console.error("Erro no cadastro com Google:", error);
+      
+      toast({
+        title: "Erro no cadastro",
+        description: "Falha ao cadastrar com Google. Por favor, tente novamente.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      
+      setGoogleLoading(false);
+    }
+  };
   
   return (
     <div className="min-h-screen">
@@ -169,7 +200,7 @@ export default function CadastramentoPage() {
                   <Tabs defaultValue="form" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 mb-6">
                       <TabsTrigger value="form">Formulário</TabsTrigger>
-                      <TabsTrigger value="social">Login Social</TabsTrigger>
+                      <TabsTrigger value="social">Cadastro Social</TabsTrigger>
                     </TabsList>
                     <TabsContent value="form">
                       <form className="space-y-6" onSubmit={handleSubmit}>
@@ -272,7 +303,12 @@ export default function CadastramentoPage() {
                     </TabsContent>
                     <TabsContent value="social">
                       <div className="flex flex-col space-y-4">
-                        <Button variant="outline" className="w-full">
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={handleGoogleSignup}
+                          disabled={googleLoading}
+                        >
                           <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                             <path
                               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -292,7 +328,7 @@ export default function CadastramentoPage() {
                             />
                             <path d="M1 1h22v22H1z" fill="none" />
                           </svg>
-                          Continuar com Google
+                          {googleLoading ? "Redirecionando..." : "Continuar com Google"}
                         </Button>
                         <Button variant="outline" className="w-full">
                           <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 24 24">

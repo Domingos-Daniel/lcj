@@ -11,6 +11,7 @@ import Image from "next/image";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { useEffect, useState } from "react";
 import { useLoading } from "./loading-provider";
+import { useSession, signOut } from "next-auth/react";
 
 const LOGO_DARK = "https://lcj-educa.com/wp-content/uploads/2024/05/2-e1715125937459.png";
 const LOGO_LIGHT = "https://lcj-educa.com/wp-content/uploads/2024/05/1-e1715125891640.png";
@@ -20,6 +21,7 @@ export function Header() {
   const { theme, mounted } = useTheme();
   const { setIsLoading } = useLoading();
   const [currentLogo, setCurrentLogo] = useState(LOGO_LIGHT);
+  const { data: session, status } = useSession();
 
   useEffect(() => {
     if (mounted) {
@@ -66,9 +68,31 @@ export function Header() {
             <Input type="search" placeholder="Pesquisar aqui..." className="w-[200px] lg:w-[300px]" />
             <Search className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground" />
           </div>
-          <Link href="/auth" onClick={handleNavigation}>
-            <Button id="user-account">Entrar</Button>
-          </Link>
+          {status === "authenticated" ? (
+            <div className="flex items-center gap-4">
+              {session.user?.image ? (
+                <img
+                  src={session.user.image}
+                  alt="Avatar"
+                  className="h-8 w-8 rounded-full cursor-pointer"
+                />
+              ) : (
+                <div className="h-8 w-8 cursor-pointer rounded-full bg-primary flex items-center justify-center text-white">
+                  {session.user?.email?.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <button
+                className="text-sm text-gray-700 hover:underline"
+                onClick={() => signOut({ callbackUrl: "/auth" })}
+              >
+                Sair
+              </button>
+            </div>
+          ) : (
+            <Link href="/auth" onClick={handleNavigation}>
+              <Button id="user-account">Entrar</Button>
+            </Link>
+          )}
           <ThemeSwitcher />
         </div>
       </div>

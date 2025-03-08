@@ -5,32 +5,113 @@ import { useAuth } from "@/context/auth-context";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, User, Mail, Calendar, Edit, Save } from "lucide-react";
+import { Loader2, User, Mail, Calendar, Edit, Save, Lock, Phone, Eye, EyeOff } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import { 
+  Select, 
+  SelectContent, 
+  SelectGroup, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
+
+// Função para verificar a força da senha
+function getPasswordStrength(password: string): {strength: number, feedback: string} {
+  if (!password) return { strength: 0, feedback: "Insira uma senha" };
+  
+  let strength = 0;
+  let feedback = "";
+  
+  // Comprimento mínimo de 8 caracteres
+  if (password.length >= 8) strength += 25;
+  
+  // Contém letras minúsculas
+  if (/[a-z]/.test(password)) strength += 25;
+  
+  // Contém letras maiúsculas
+  if (/[A-Z]/.test(password)) strength += 25;
+  
+  // Contém números
+  if (/[0-9]/.test(password)) strength += 25;
+  
+  // Contém caracteres especiais
+  if (/[^A-Za-z0-9]/.test(password)) strength += 25;
+  
+  // Limitar a força máxima a 100
+  strength = Math.min(strength, 100);
+  
+  // Feedback com base na força
+  if (strength < 25) {
+    feedback = "Muito fraca";
+  } else if (strength < 50) {
+    feedback = "Fraca";
+  } else if (strength < 75) {
+    feedback = "Média";
+  } else {
+    feedback = "Forte";
+  }
+  
+  return { strength, feedback };
+}
 
 export default function ProfilePage() {
   const { user, logout, loading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const [userData, setUserData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
-    bio: "Ainda não há informações de biografia.",
+    bio: "",
     phone: "",
+    gender: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
+  
+  // Estado para força da senha
+  const [passwordStrength, setPasswordStrength] = useState({ strength: 0, feedback: "" });
+  
+  // Calcular nome completo
+  const fullName = `${userData.firstName} ${userData.lastName}`.trim();
   
   useEffect(() => {
     if (user) {
+      // Separar nome completo em primeiro nome e sobrenome
+      const nameParts = user.name ? user.name.split(" ") : ["", ""];
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+      
       setUserData({
-        name: user.name || "",
+        firstName: firstName,
+        lastName: lastName,
         email: user.email || "",
         bio: user.bio || "Ainda não há informações de biografia.",
         phone: user.phone || "",
+        gender: user.gender || "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
     }
   }, [user]);
+  
+  // Atualizar força da senha quando a senha muda
+  useEffect(() => {
+    setPasswordStrength(getPasswordStrength(userData.newPassword));
+  }, [userData.newPassword]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -40,14 +121,122 @@ export default function ProfilePage() {
     }));
   };
   
-  const handleSave = () => {
-    // Aqui você implementaria a lógica para salvar no WordPress via API
-    toast({
-      title: "Perfil atualizado",
-      description: "Suas informações foram salvas com sucesso!",
-      variant: "success",
-    });
-    setIsEditing(false);
+  const handleSelectChange = (value: string, name: string) => {
+    setUserData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+  
+  const validateForm = () => {
+    // Validar senha se estiver sendo alterada
+    if (userData.newPassword) {
+      if (passwordStrength.strength < 50) {
+        toast({
+          title: "Senha fraca",
+          description: "Por favor, escolha uma senha mais forte (combine maiúsculas, minúsculas, números e caracteres especiais).",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      if (userData.newPassword !== userData.confirmPassword) {
+        toast({
+          title: "Senhas não coincidem",
+          description: "A nova senha e a confirmação devem ser idênticas.",
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      if (!userData.currentPassword) {
+        toast({
+          title: "Senha atual necessária",
+          description: "Por favor, digite sua senha atual para confirmar as alterações.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+    
+    // Validar telefone (formato angolano)
+    if (userData.phone && !/^\+?244[9][1-9]\d{7}$/.test(userData.phone.replace(/\s/g, ''))) {
+      toast({
+        title: "Formato de telefone inválido",
+        description: "Por favor, insira um número de telefone válido (formato angolano: +244 9XX XXX XXX).",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    return true;
+  };
+  
+  const handleSave = async () => {
+    if (!validateForm()) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // Aqui você implementaria a lógica para salvar no WordPress via API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/lcj/v1/user/update`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("wp_token")}`,
+        },
+        body: JSON.stringify({
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          email: userData.email,
+          phone: userData.phone,
+          gender: userData.gender,
+          bio: userData.bio,
+          current_password: userData.currentPassword || undefined,
+          new_password: userData.newPassword || undefined,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast({
+          title: "Perfil atualizado",
+          description: "Suas informações foram salvas com sucesso!",
+          variant: "success",
+        });
+        
+        // Atualizar usuário no contexto de auth
+        // Você precisaria implementar uma função para isso em seu AuthContext
+        
+        // Limpar campos de senha
+        setUserData(prev => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        }));
+        
+        setIsEditing(false);
+      } else {
+        throw new Error(data.message || "Erro ao atualizar perfil");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar perfil",
+        description: error.message || "Ocorreu um erro ao salvar suas informações.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const getProgressColor = (strength: number) => {
+    if (strength < 25) return "bg-red-500";
+    if (strength < 50) return "bg-orange-500";
+    if (strength < 75) return "bg-yellow-500";
+    return "bg-green-500";
   };
   
   if (loading) {
@@ -71,7 +260,7 @@ export default function ProfilePage() {
                 {user?.avatar ? (
                   <Image 
                     src={user.avatar} 
-                    alt={user.name || "Avatar"} 
+                    alt={fullName || "Avatar"} 
                     fill
                     className="rounded-full object-cover border-4 border-primary/20"
                   />
@@ -81,7 +270,7 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
-              <CardTitle>{user?.name}</CardTitle>
+              <CardTitle>{fullName || "Usuário"}</CardTitle>
               <CardDescription>{user?.email}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -91,8 +280,14 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span className="text-sm">Membro desde {new Date().toLocaleDateString()}</span>
+                <span className="text-sm">Membro desde {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</span>
               </div>
+              {userData.phone && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  <span className="text-sm">{userData.phone}</span>
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               <Button onClick={logout} variant="outline" className="w-full">
@@ -103,90 +298,271 @@ export default function ProfilePage() {
         </div>
         
         <div className="md:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Dados Pessoais</CardTitle>
-                <CardDescription>Atualize suas informações pessoais</CardDescription>
-              </div>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                {isEditing ? <Save className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3">
-                <label className="text-sm font-medium" htmlFor="name">
-                  Nome Completo
-                </label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={userData.name}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                />
-              </div>
-              
-              <div className="grid gap-3">
-                <label className="text-sm font-medium" htmlFor="email">
-                  Email
-                </label>
-                <Input
-                  id="email"
-                  name="email"
-                  value={userData.email}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  type="email"
-                />
-              </div>
-              
-              <div className="grid gap-3">
-                <label className="text-sm font-medium" htmlFor="phone">
-                  Telefone
-                </label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  value={userData.phone}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  type="tel"
-                  placeholder="+244 XXX XXX XXX"
-                />
-              </div>
-              
-              <div className="grid gap-3">
-                <label className="text-sm font-medium" htmlFor="bio">
-                  Biografia
-                </label>
-                <Textarea
-                  id="bio"
-                  name="bio"
-                  value={userData.bio}
-                  onChange={handleChange}
-                  disabled={!isEditing}
-                  rows={5}
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              {isEditing && (
-                <div className="flex gap-2 w-full">
-                  <Button onClick={() => setIsEditing(false)} variant="outline" className="flex-1">
-                    Cancelar
+          <Tabs defaultValue="profile">
+            <TabsList className="mb-4">
+              <TabsTrigger value="profile">Perfil</TabsTrigger>
+              <TabsTrigger value="security">Segurança</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="profile">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Dados Pessoais</CardTitle>
+                    <CardDescription>Atualize suas informações pessoais</CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => setIsEditing(!isEditing)}
+                  >
+                    {isEditing ? <Save className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
                   </Button>
-                  <Button onClick={handleSave} className="flex-1">
-                    Salvar Alterações
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-3">
+                      <label className="text-sm font-medium" htmlFor="firstName">
+                        Nome
+                      </label>
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        value={userData.firstName}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
+                    </div>
+                    
+                    <div className="grid gap-3">
+                      <label className="text-sm font-medium" htmlFor="lastName">
+                        Sobrenome
+                      </label>
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        value={userData.lastName}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    <label className="text-sm font-medium" htmlFor="email">
+                      Email
+                    </label>
+                    <Input
+                      id="email"
+                      name="email"
+                      value={userData.email}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      type="email"
+                    />
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-3">
+                      <label className="text-sm font-medium" htmlFor="gender">
+                        Gênero
+                      </label>
+                      <Select 
+                        value={userData.gender} 
+                        onValueChange={(value) => handleSelectChange(value, 'gender')}
+                        disabled={!isEditing}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="male">Masculino</SelectItem>
+                            <SelectItem value="female">Feminino</SelectItem>
+                            <SelectItem value="other">Outro</SelectItem>
+                            <SelectItem value="prefer_not_to_say">Prefiro não informar</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="grid gap-3">
+                      <label className="text-sm font-medium" htmlFor="phone">
+                        Telefone
+                      </label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        value={userData.phone}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        type="tel"
+                        placeholder="+244 9XX XXX XXX"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    <label className="text-sm font-medium" htmlFor="bio">
+                      Biografia
+                    </label>
+                    <Textarea
+                      id="bio"
+                      name="bio"
+                      value={userData.bio}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      rows={5}
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  {isEditing && (
+                    <div className="flex gap-2 w-full">
+                      <Button onClick={() => setIsEditing(false)} variant="outline" className="flex-1">
+                        Cancelar
+                      </Button>
+                      <Button 
+                        onClick={handleSave} 
+                        className="flex-1"
+                        disabled={isSaving}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : "Salvar Alterações"}
+                      </Button>
+                    </div>
+                  )}
+                </CardFooter>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="security">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Segurança</CardTitle>
+                  <CardDescription>Gerencie sua senha e preferências de segurança</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3">
+                    <label className="text-sm font-medium" htmlFor="currentPassword">
+                      Senha Atual
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        name="currentPassword"
+                        value={userData.currentPassword}
+                        onChange={handleChange}
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Digite sua senha atual"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    <label className="text-sm font-medium" htmlFor="newPassword">
+                      Nova Senha
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        name="newPassword"
+                        value={userData.newPassword}
+                        onChange={handleChange}
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Digite sua nova senha"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    
+                    {userData.newPassword && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span>Força da senha</span>
+                          <span className={
+                            passwordStrength.strength < 25 ? "text-red-500" :
+                            passwordStrength.strength < 50 ? "text-orange-500" :
+                            passwordStrength.strength < 75 ? "text-yellow-500" :
+                            "text-green-500"
+                          }>
+                            {passwordStrength.feedback}
+                          </span>
+                        </div>
+                        <Progress 
+                          value={passwordStrength.strength} 
+                          className={`h-1 ${getProgressColor(passwordStrength.strength)}`}
+                        />
+                        <ul className="text-xs space-y-1 text-muted-foreground mt-2">
+                          <li className={/[A-Z]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos uma letra maiúscula</li>
+                          <li className={/[a-z]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos uma letra minúscula</li>
+                          <li className={/[0-9]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos um número</li>
+                          <li className={/[^A-Za-z0-9]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos um caractere especial</li>
+                          <li className={userData.newPassword.length >= 8 ? "text-green-500" : ""}>• Mínimo de 8 caracteres</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    <label className="text-sm font-medium" htmlFor="confirmPassword">
+                      Confirmar Nova Senha
+                    </label>
+                    <Input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      value={userData.confirmPassword}
+                      onChange={handleChange}
+                      type="password"
+                      placeholder="Confirme sua nova senha"
+                    />
+                    {userData.newPassword && userData.confirmPassword && 
+                      userData.newPassword !== userData.confirmPassword && (
+                        <p className="text-xs text-red-500">
+                          As senhas não coincidem
+                        </p>
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={handleSave}
+                    className="w-full"
+                    disabled={isSaving || 
+                      (userData.newPassword && 
+                        (passwordStrength.strength < 50 || 
+                        userData.newPassword !== userData.confirmPassword || 
+                        !userData.currentPassword)
+                      )
+                    }
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : "Atualizar Senha"}
                   </Button>
-                </div>
-              )}
-            </CardFooter>
-          </Card>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

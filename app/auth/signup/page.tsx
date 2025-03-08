@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Github } from "lucide-react"
+import { Facebook, Github } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function SignUpPage() {
@@ -69,8 +69,8 @@ export default function SignUpPage() {
                     Google
                   </Button>
                   <Button variant="outline">
-                    <Github className="mr-2 h-4 w-4" />
-                    GitHub
+                    <Facebook className="mr-2 h-4 w-4" />
+                    Facebook
                   </Button>
                 </div>
                 <div className="relative">
