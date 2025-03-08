@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Facebook, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { signIn } from "next-auth/react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { signIn, useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
@@ -17,17 +19,43 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-
+  const searchParams = useSearchParams();
+  const { login } = useAuth();
+  const { toast } = useToast();
+  const { status } = useSession();
+  
+  // Redirecionar se já estiver autenticado
+  useEffect(() => {
+    if (status === "authenticated") {
+      const callbackUrl = searchParams?.get("callbackUrl") || "/profile";
+      router.push(callbackUrl);
+    }
+  }, [status, router, searchParams]);
+  
   // Função para login com Google
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
+      toast({
+        title: "Redirecionando...",
+        description: "Você será redirecionado para o Google",
+        duration: 3000,
+      });
+      
       await signIn("google", { 
-        callbackUrl: "/" // Redirecionar após login bem-sucedido
+        callbackUrl: searchParams?.get("callbackUrl") || "/profile"
       });
     } catch (error) {
       console.error("Erro no login com Google:", error);
       setError("Falha ao entrar com Google. Tente novamente.");
+      
+      toast({
+        title: "Erro no login",
+        description: "Falha ao entrar com Google. Por favor, tente novamente.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      
       setIsLoading(false);
     }
   };
@@ -54,13 +82,32 @@ export default function AuthPage() {
 
       if (response.ok && data.token) {
         // Armazenar token JWT do WordPress
-        localStorage.setItem("wp_token", data.token);
-        router.push("/"); // Redirecionar para a página inicial
+        login(data.token, {
+          id: data.user_id,
+          email: data.user_email,
+          name: data.user_display_name,
+          avatar: data.user_avatar,
+        });
+        
+        // Redirecionar para callback url ou perfil
+        router.push(searchParams?.get("callbackUrl") || "/profile");
       } else {
         setError(data.message || "Credenciais inválidas");
+        toast({
+          title: "Erro no login",
+          description: data.message || "Credenciais inválidas",
+          variant: "destructive",
+          duration: 5000,
+        });
       }
     } catch (error) {
       setError("Erro ao conectar com o servidor. Tente novamente mais tarde.");
+      toast({
+        title: "Erro no servidor",
+        description: "Erro ao conectar com o servidor. Tente novamente mais tarde.",
+        variant: "destructive",
+        duration: 5000,
+      });
     } finally {
       setIsLoading(false);
     }

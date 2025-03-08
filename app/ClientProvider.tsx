@@ -7,6 +7,7 @@ import { Preloader } from "@/components/preloader";
 import { SessionProvider } from "next-auth/react";
 import { AuthProvider } from "@/context/auth-context";
 import ClientLayout from "./ClientLayout";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function ClientProvider({
   children,
@@ -21,6 +22,7 @@ export default function ClientProvider({
             <ClientLayout>
               {children}
               <BackToTop />
+              <Toaster />
             </ClientLayout>
           </LoadingProvider>
         </ThemeProvider>
