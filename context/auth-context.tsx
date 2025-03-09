@@ -25,6 +25,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   refreshUserData: () => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -352,49 +353,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUserData();
   }, [session, status, toast]);
 
-  const login = (token: string, userData: any) => {
+  const login = (token: string, userData: User) => {
     localStorage.setItem("wp_token", token);
-    setUser({
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      avatar: userData.avatar,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      bio: userData.bio,
-      phone: userData.phone,
-      gender: userData.gender,
-      createdAt: userData.registered || new Date().toISOString()
-    });
-    
-    toast({
-      title: "Login realizado com sucesso!",
-      description: `Bem-vindo, ${userData.name || "usuário"}!`,
-      variant: "success",
-      duration: 3000,
-    });
-    
-    // Redirecionar para o perfil após login bem-sucedido
-    router.push("/profile");
+    setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem("wp_token");
     setUser(null);
-    hasShownWelcomeToast.current = false; // Redefinir para permitir toast no próximo login
-    initialLoadComplete.current = false; // Redefinir para recarregar dados no próximo login
-    
-    // Se usando NextAuth, também encerrar sessão
-    signOut({ redirect: false }).then(() => {
-      toast({
-        title: "Sessão encerrada",
-        description: "Você foi desconectado com sucesso.",
-        duration: 3000,
+  };
+
+  const signup = async (email: string, password: string, name: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/users/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: email,
+          email,
+          password,
+          name,
+        }),
       });
-      
-      // Redirecionar para a home após logout
-      router.push("/");
-    });
+
+      const data = await response.json();
+
+      if (response.ok && data.token) {
+        login(data.token, {
+          id: data.user_id,
+          email: data.user_email,
+          name: data.user_display_name,
+          avatar: data.user_avatar,
+        });
+        return { success: true };
+      } else {
+        return { success: false, message: data.message || "Erro ao criar conta" };
+      }
+    } catch (error) {
+      return { success: false, message: "Erro ao conectar com o servidor. Tente novamente mais tarde." };
+    }
   };
 
   return (
@@ -405,7 +404,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         loading,
-        refreshUserData
+        refreshUserData,
+        signup
       }}
     >
       {children}

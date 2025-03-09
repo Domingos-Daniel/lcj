@@ -26,10 +26,11 @@ if (!function_exists('lcj_log')) {
 
 // Adicionar suporte a CORS para permitir requisições da aplicação Next.js
 function lcj_handle_cors() {
+    // Permitir todas as origens
     header("Access-Control-Allow-Origin: *");
-    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-    header("Access-Control-Allow-Headers: Authorization, Content-Type, Accept");
-    
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+    header("Access-Control-Allow-Headers: Authorization, Content-Type, Accept, Origin, X-Requested-With");
+
     // Responder imediatamente a requisições OPTIONS (preflight)
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         status_header(200);
@@ -40,6 +41,7 @@ add_action('init', 'lcj_handle_cors');
 
 // Registrar endpoints da REST API
 add_action('rest_api_init', function() {
+    // Registrar endpoints da REST API
     // Endpoint para autenticação OAuth Google
     register_rest_route('lcj/v1', '/oauth/google', [
         'methods'             => 'POST',
@@ -116,6 +118,18 @@ add_action('rest_api_init', function() {
         },
         'permission_callback' => '__return_true',
     ]);
+    
+    // Endpoint para registro de usuários
+    register_rest_route('wp/v2', '/users/register', [
+        'methods' => 'POST',
+        'callback' => 'lcj_register_user',
+        'permission_callback' => '__return_true',
+    ]);
+});
+
+// Adicionar suporte a CORS para todas as requisições da API REST
+add_action('rest_pre_serve_request', function() {
+    lcj_handle_cors();
 });
 
 // Verificar token via parâmetro URL
@@ -724,6 +738,57 @@ function lcj_debug_token($request) {
     }
     
     return $result;
+}
+
+// Registrar novo usuário
+function lcj_register_user($request) {
+    $params = $request->get_json_params();
+
+    if (empty($params['username']) || empty($params['email']) || empty($params['password'])) {
+        return new WP_Error('missing_parameter', 'Nome de usuário, email e senha são obrigatórios', ['status' => 400]);
+    }
+
+    $username = sanitize_user($params['username']);
+    $email = sanitize_email($params['email']);
+    $password = $params['password'];
+    $name = sanitize_text_field($params['name']);
+
+    if (username_exists($username) || email_exists($email)) {
+        return new WP_Error('user_exists', 'Nome de usuário ou email já existe', ['status' => 400]);
+    }
+
+    $user_id = wp_create_user($username, $password, $email);
+
+    if (is_wp_error($user_id)) {
+        return $user_id;
+    }
+
+    wp_update_user([
+        'ID' => $user_id,
+        'display_name' => $name,
+        'first_name' => $name,
+    ]);
+
+    $user = get_user_by('id', $user_id);
+    $token = bin2hex(random_bytes(32));
+
+    update_user_meta($user_id, 'lcj_auth_token', [
+        'token' => $token,
+        'created' => time(),
+        'expires' => time() + (30 * DAY_IN_SECONDS)
+    ]);
+
+    update_user_meta($user_id, 'lcj_auth_token_value', $token);
+    update_user_meta($user_id, 'lcj_auth_token_expires', time() + (30 * DAY_IN_SECONDS));
+
+    return [
+        'success' => true,
+        'token' => $token,
+        'user_id' => $user_id,
+        'user_email' => $user->user_email,
+        'user_display_name' => $user->display_name,
+        'user_avatar' => get_avatar_url($user_id),
+    ];
 }
 
 // Garantir que a API REST esteja habilitada
