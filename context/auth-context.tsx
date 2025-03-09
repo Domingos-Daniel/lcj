@@ -43,11 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Função para buscar detalhes do usuário do WordPress
   const fetchWpUserDetails = async (token: string) => {
     try {
-      console.log("Buscando detalhes do usuário com token:", token.substring(0, 10) + "...");
+      //console.log("Buscando detalhes do usuário com token:", token.substring(0, 10) + "...");
       
       // Usar token na URL em vez de no header
       const url = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/details&token=${encodeURIComponent(token)}`;
-      console.log("URL completa:", url);
+      //console.log("URL completa:", url);
       
       const response = await fetch(url, {
         method: "GET",
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: "omit" // Não enviar cookies para evitar conflitos
       });
       
-      console.log("Status da resposta:", response.status, response.statusText);
+      //console.log("Status da resposta:", response.status, response.statusText);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/debug-token&token=${encodeURIComponent(token)}`
             );
             const debugData = await debugResponse.json();
-            console.log("Dados de debug do token:", debugData);
+            //console.log("Dados de debug do token:", debugData);
           } catch (debugError) {
             console.error("Erro ao verificar debug do token:", debugError);
           }
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       const userData = await response.json();
-      console.log("Detalhes do usuário recebidos:", userData);
+      //console.log("Detalhes do usuário recebidos:", userData);
       return userData;
     } catch (error) {
       console.error("Erro ao carregar detalhes do usuário:", error);
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         else if (session && status === "authenticated") {
           // Tentar sincronizar com WordPress
           try {
-            console.log("Tentando sincronizar usuário Google com WordPress");
+            //console.log("Tentando sincronizar usuário Google com WordPress");
             
             // Verificar se temos uma URL do WordPress válida
             if (!process.env.NEXT_PUBLIC_WORDPRESS_URL) {
@@ -217,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             const wpURL = process.env.NEXT_PUBLIC_WORDPRESS_URL;
-            console.log("Chamando endpoint WordPress:", `${wpURL}/?rest_route=/lcj/v1/oauth/google`);
+            //console.log("Chamando endpoint WordPress:", `${wpURL}/?rest_route=/lcj/v1/oauth/google`);
             
             const response = await fetch(`${wpURL}/?rest_route=/lcj/v1/oauth/google`, {
               method: "POST",
@@ -235,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             
             // Log do código de status
-            console.log(`Status da resposta: ${response.status} ${response.statusText}`);
+            //console.log(`Status da resposta: ${response.status} ${response.statusText}`);
             
             // Verificar se tem resposta válida
             let responseText;
@@ -243,9 +243,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             try {
               responseText = await response.text();
-              console.log("Resposta do WordPress (texto):", responseText);
+              //console.log("Resposta do WordPress (texto):", responseText);
               data = JSON.parse(responseText);
-              console.log("Resposta do WordPress (JSON):", data);
+              //console.log("Resposta do WordPress (JSON):", data);
             } catch (parseError) {
               console.error("Erro ao analisar resposta JSON:", parseError);
               
@@ -259,7 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             // Verificar se teve sucesso
             if (response.ok && data?.success && data?.token) {
-              console.log("Token recebido do WordPress");
+              //console.log("Token recebido do WordPress");
               localStorage.setItem("wp_token", data.token);
               
               // Buscar dados atualizados do usuário
