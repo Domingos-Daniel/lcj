@@ -229,7 +229,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const wpURL = process.env.NEXT_PUBLIC_WORDPRESS_URL;
             //console.log("Chamando endpoint WordPress:", `${wpURL}/?rest_route=/lcj/v1/oauth/google`);
             
-            const response = await fetch(`${wpURL}/?rest_route=/lcj/v1/oauth/google`, {
+            // Detectar provedor de autenticação
+            const authProvider = session?.provider || 
+                                (session?.user?.image?.includes('google') ? 'google' : 
+                                 session?.user?.image?.includes('facebook') ? 'facebook' : 'unknown');
+
+            // Construir URL para endpoint correto
+            const oauthEndpoint = authProvider === 'facebook' ? 
+                                 `${wpURL}/?rest_route=/lcj/v1/oauth/facebook` :
+                                 `${wpURL}/?rest_route=/lcj/v1/oauth/google`;
+
+            const response = await fetch(oauthEndpoint, {
               method: "POST",
               headers: { 
                 "Content-Type": "application/json",

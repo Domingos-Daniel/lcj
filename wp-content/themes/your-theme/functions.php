@@ -47,6 +47,13 @@ add_action('rest_api_init', function() {
         'permission_callback' => '__return_true', // Permitir acesso não autenticado
     ]);
 
+    // Endpoint para autenticação OAuth Facebook
+    register_rest_route('lcj/v1', '/oauth/facebook', [
+        'methods'             => 'POST',
+        'callback'            => 'lcj_handle_facebook_oauth',
+        'permission_callback' => '__return_true', // Permitir acesso não autenticado
+    ]);
+
     // Endpoint para obter detalhes do usuário
     register_rest_route('lcj/v1', '/user/details', [
         'methods'             => 'GET',
@@ -304,6 +311,117 @@ function lcj_handle_google_oauth($request) {
     ];
 }
 
+// Endpoint para autenticação Facebook
+function lcj_handle_facebook_oauth($request) {
+    lcj_log("Recebida solicitação de OAuth Facebook");
+    
+    $params = $request->get_json_params();
+    
+    // Validar dados
+    if (empty($params['email'])) {
+        lcj_log("Email não fornecido");
+        return new WP_Error(
+            'missing_parameter', 
+            'Email é obrigatório', 
+            ['status' => 400]
+        );
+    }
+    
+    $email = sanitize_email($params['email']);
+    $name = !empty($params['name']) ? sanitize_text_field($params['name']) : '';
+    $picture = !empty($params['picture']) ? esc_url_raw($params['picture']) : '';
+    
+    // Verificar se usuário existe
+    $user = get_user_by('email', $email);
+    
+    if ($user) {
+        // Usuário já existe
+        $user_id = $user->ID;
+        lcj_log("Usuário existente encontrado", $user_id);
+        
+        // Atualizar avatar
+        if ($picture) {
+            update_user_meta($user_id, 'facebook_profile_picture', $picture);
+        }
+    } else {
+        // Criar novo usuário
+        lcj_log("Criando novo usuário", $email);
+        
+        // Gerar username do email
+        $username = sanitize_user(substr($email, 0, strpos($email, '@')));
+        $username = preg_replace('/[^a-z0-9_]/i', '', $username);
+        
+        // Garantir que seja único
+        $original_username = $username;
+        $count = 1;
+        while (username_exists($username)) {
+            $username = $original_username . $count;
+            $count++;
+        }
+        
+        // Dividir nome
+        $name_parts = explode(' ', $name);
+        $first_name = !empty($name_parts[0]) ? $name_parts[0] : '';
+        $last_name = count($name_parts) > 1 ? end($name_parts) : '';
+        
+        // Verificar role
+        $role = 'subscriber';
+        if (get_role('armember')) {
+            $role = 'armember';
+        }
+        
+        // Criar usuário
+        $user_data = [
+            'user_login'    => $username,
+            'user_email'    => $email,
+            'display_name'  => $name,
+            'first_name'    => $first_name,
+            'last_name'     => $last_name,
+            'user_pass'     => wp_generate_password(16),
+            'role'          => $role
+        ];
+        
+        $user_id = wp_insert_user($user_data);
+        
+        if (is_wp_error($user_id)) {
+            lcj_log("Erro ao criar usuário", $user_id->get_error_message());
+            return $user_id;
+        }
+        
+        // Salvar avatar
+        if ($picture) {
+            update_user_meta($user_id, 'facebook_profile_picture', $picture);
+        }
+    }
+    
+    // Definir status OAuth - AGORA DEPOIS DE TER $user_id DEFINIDO
+    update_user_meta($user_id, 'oauth_user', true);
+    update_user_meta($user_id, 'oauth_provider', 'facebook');
+    lcj_log("Definido status OAuth para usuário", $user_id);
+    
+    // Gerar token
+    $token = bin2hex(random_bytes(32));
+    
+    // Salvar token em ambos os formatos
+    update_user_meta($user_id, 'lcj_auth_token', [
+        'token' => $token,
+        'created' => time(),
+        'expires' => time() + (30 * DAY_IN_SECONDS)
+    ]);
+    
+    update_user_meta($user_id, 'lcj_auth_token_value', $token);
+    update_user_meta($user_id, 'lcj_auth_token_expires', time() + (30 * DAY_IN_SECONDS));
+    
+    lcj_log("Token gerado com sucesso", substr($token, 0, 10) . "...");
+    
+    return [
+        'success' => true,
+        'token' => $token,
+        'user_id' => $user_id,
+        'message' => 'Autenticação bem-sucedida'
+    ];
+}
+
 // Obter detalhes do usuário
 function lcj_get_user_details($request) {
     $current_user = wp_get_current_user();
@@ -318,9 +436,14 @@ function lcj_get_user_details($request) {
     // Obter avatar
     $avatar_url = get_avatar_url($current_user->ID);
     $google_image = get_user_meta($current_user->ID, 'google_profile_picture', true);
+    $facebook_image = get_user_meta($current_user->ID, 'facebook_profile_picture', true);
     
-    if (!$avatar_url && $google_image) {
-        $avatar_url = $google_image;
+    if (!$avatar_url) {
+        if ($google_image) {
+            $avatar_url = $google_image;
+        } else if ($facebook_image) {
+            $avatar_url = $facebook_image;
+        }
     }
     
     // Obter campos personalizados

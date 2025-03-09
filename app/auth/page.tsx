@@ -60,6 +60,12 @@ export default function AuthPage() {
     }
   };
 
+  // Função para login com Facebook
+  const handleFacebookLogin = async () => {
+    setIsLoading(true);
+    await signIn("facebook", { callbackUrl: "/profile" });
+  };
+
   // Função para login com credenciais normais do WordPress
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,7 +189,7 @@ export default function AuthPage() {
                     )}
                     Google
                   </Button>
-                  <Button variant="outline" disabled={isLoading}>
+                  <Button variant="outline" onClick={handleFacebookLogin} disabled={isLoading}>
                     <Facebook className="mr-2 h-4 w-4" />
                     Facebook
                   </Button>

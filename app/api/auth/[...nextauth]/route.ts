@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import FacebookProvider from "next-auth/providers/facebook"; // Adicionar provider do Facebook
 import type { NextAuthOptions } from "next-auth";
 
 const WORDPRESS_URL = process.env.WORDPRESS_URL || "https://lcj-educa.com";
@@ -10,6 +11,10 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     }),
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID!,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+    })
   ],
   callbacks: {
     async jwt({ token, account, profile }) {
