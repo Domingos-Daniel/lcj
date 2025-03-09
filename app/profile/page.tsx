@@ -138,7 +138,9 @@ export default function ProfilePage() {
         return false;
       }
       
-      if (!userData.currentPassword) {
+      // Se o usuário não for OAuth, exigir a senha atual; 
+      // caso contrário, não validar esse campo
+      if (!user?.oauth && !userData.currentPassword) {
         toast({
           title: "Senha atual necessária",
           description: "Digite sua senha atual para confirmar as alterações.",
@@ -148,7 +150,7 @@ export default function ProfilePage() {
       }
     }
     
-    // Validar telefone (exemplo para formato angolano)
+    // Validação de telefone permanece inalterada
     if (userData.phone && !/^\+?244[9][1-9]\d{7}$/.test(userData.phone.replace(/\s/g, ''))) {
       toast({
         title: "Telefone inválido",
@@ -187,7 +189,7 @@ export default function ProfilePage() {
             phone: userData.phone,
             gender: userData.gender,
             bio: userData.bio,
-            current_password: userData.currentPassword || undefined,
+            current_password: user?.oauth ? undefined : userData.currentPassword,
             new_password: userData.newPassword || undefined,
           }),
         }

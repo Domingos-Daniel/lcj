@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       const userData = await response.json();
-      console.log("Detalhes do usuário recebidos:", userData);
+      //console.log("Detalhes do usuário recebidos:", userData);
       
       // Verificar se o usuário fez login via OAuth
       const isOAuthUser = userData.oauth_user === true;
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             phone: userData.phone,
             gender: userData.gender,
             createdAt: userData.registered || new Date().toISOString(),
-            oauth_user: userData.oauth|| false, // Adicionar a propriedade oauth
+            oauth: userData.oauth|| false, // Adicionar a propriedade oauth
           });
         }
       } else if (session?.user) {
@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               phone: userData.phone,
               gender: userData.gender,
               createdAt: userData.registered || new Date().toISOString(),
-              oauth: true, // Adicionar a propriedade oauth
+              oauth: true, // Marca o usuário como OAuth
             });
             
             if (!hasShownWelcomeToast.current) {
