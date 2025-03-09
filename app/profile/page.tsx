@@ -455,28 +455,30 @@ export default function ProfilePage() {
                   <CardDescription>Altere sua senha</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3">
-                    <label className="text-sm font-medium" htmlFor="currentPassword">
-                      Senha Atual
-                    </label>
-                    <div className="relative">
-                      <Input
-                        id="currentPassword"
-                        name="currentPassword"
-                        value={userData.currentPassword}
-                        onChange={handleChange}
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Digite sua senha atual"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+                  {!user?.oauth && (
+                    <div className="grid gap-3">
+                      <label className="text-sm font-medium" htmlFor="currentPassword">
+                        Senha Atual
+                      </label>
+                      <div className="relative">
+                        <Input
+                          id="currentPassword"
+                          name="currentPassword"
+                          value={userData.currentPassword}
+                          onChange={handleChange}
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Digite sua senha atual"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   
                   <div className="grid gap-3">
                     <label className="text-sm font-medium" htmlFor="newPassword">
@@ -554,9 +556,12 @@ export default function ProfilePage() {
                     disabled={
                       isSaving ||
                       (userData.newPassword &&
-                        (passwordStrength.strength < 50 ||
-                        userData.newPassword !== userData.confirmPassword ||
-                        !userData.currentPassword))
+                        (
+                          passwordStrength.strength < 50 ||
+                          userData.newPassword !== userData.confirmPassword ||
+                          (!user?.oauth && !userData.currentPassword)
+                        )
+                      )
                     }
                   >
                     {isSaving ? (

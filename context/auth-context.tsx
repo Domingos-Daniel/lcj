@@ -83,8 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       const userData = await response.json();
-      //console.log("Detalhes do usuário recebidos:", userData);
-      return userData;
+      console.log("Detalhes do usuário recebidos:", userData);
+      
+      // Verificar se o usuário fez login via OAuth
+      const isOAuthUser = userData.oauth_user === true;
+      
+      return {
+        ...userData,
+        oauth: isOAuthUser, // Adicionar a propriedade oauth
+      };
     } catch (error) {
       console.error("Erro ao carregar detalhes do usuário:", error);
       return null;
@@ -111,7 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             bio: userData.description,
             phone: userData.phone,
             gender: userData.gender,
-            createdAt: userData.registered || new Date().toISOString()
+            createdAt: userData.registered || new Date().toISOString(),
+            oauth_user: userData.oauth|| false, // Adicionar a propriedade oauth
           });
         }
       } else if (session?.user) {
@@ -155,7 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               bio: userData.description,
               phone: userData.phone,
               gender: userData.gender,
-              createdAt: userData.registered || new Date().toISOString()
+              createdAt: userData.registered || new Date().toISOString(),
+              oauth: true, // Adicionar a propriedade oauth
             });
             
             if (!hasShownWelcomeToast.current) {
@@ -190,7 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               bio: userData.description,
               phone: userData.phone,
               gender: userData.gender,
-              createdAt: userData.registered || new Date().toISOString()
+              createdAt: userData.registered || new Date().toISOString(),
+              oauth: userData.oauth || false, // Adicionar a propriedade oauth
             });
             
             if (!hasShownWelcomeToast.current) {
@@ -276,7 +286,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   bio: userData.description,
                   phone: userData.phone,
                   gender: userData.gender,
-                  createdAt: userData.registered || new Date().toISOString()
+                  createdAt: userData.registered || new Date().toISOString(),
+                  oauth: userData.oauth || false, // Adicionar a propriedade oauth
                 });
                 
                 if (!hasShownWelcomeToast.current) {
