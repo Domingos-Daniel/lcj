@@ -21,7 +21,7 @@ interface User {
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  login: (token: string, userData: any) => void;
+  login: (token: string, userData: any, redirectUrl?: string) => void;
   logout: () => void;
   loading: boolean;
   refreshUserData: () => Promise<void>;
@@ -353,9 +353,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUserData();
   }, [session, status, toast]);
 
-  const login = (token: string, userData: User) => {
+  const login = (token: string, userData: User, redirectUrl?: string) => {
     localStorage.setItem("wp_token", token);
+    
+    // Definir cookie com atributos apropriados para localhost
+    document.cookie = `wp_token=${token}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax;`;
+    
+    // Limpar o cookie de callback do NextAuth
+    document.cookie = "next-auth.callback-url=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    
     setUser(userData);
+    
+    if (redirectUrl) {
+      // Usar window.location para fazer um redirecionamento mais "forte"
+      window.location.href = redirectUrl;
+      // Alternativamente, você pode manter o router.push, mas talvez precise de
+      // return; para garantir que o redirecionamento aconteça antes de qualquer outro código
+    }
   };
 
   const logout = () => {

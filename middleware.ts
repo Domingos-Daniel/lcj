@@ -11,12 +11,13 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
   
   if (isProtectedRoute) {
-    // Verificar se o usuário tem um token no cookie
-    const token = request.cookies.get("next-auth.session-token")?.value || 
-                  request.cookies.get("__Secure-next-auth.session-token")?.value;
+    // Verifica o cookie padrão do NextAuth ou o nosso cookie wp_token
+    const nextAuthToken = request.cookies.get("next-auth.session-token")?.value || 
+                          request.cookies.get("__Secure-next-auth.session-token")?.value;
+    const wpToken = request.cookies.get("wp_token")?.value;
     
     // Se não tiver token, redirecionar para login
-    if (!token) {
+    if (!nextAuthToken && !wpToken) {
       const url = new URL("/auth", request.url);
       url.searchParams.set("callbackUrl", encodeURI(request.url));
       return NextResponse.redirect(url);

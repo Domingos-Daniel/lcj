@@ -128,6 +128,7 @@ export default function AuthPage() {
 
       const token = data.data.jwt;
       localStorage.setItem("jwt_token", token);
+
       toast({
         title: "Login bem-sucedido!",
         description: "Redirecionando...",
@@ -135,7 +136,7 @@ export default function AuthPage() {
       });
 
       console.log("Redirecionando para o /profile com token:", token);
-      router.push("/profile");
+      login(token, data.data.user, "/profile");
     } catch (error) {
       setError("Erro ao conectar com o servidor.");
       toast({
