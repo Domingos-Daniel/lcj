@@ -641,7 +641,7 @@ export default function ProfilePage() {
                   memberMemberships.response.result.memberships.length > 0 ? (
                     <div className="space-y-4">
                       {memberMemberships.response.result.memberships.map((membership) => {
-                        // Adjusted check: compare is_suspended as number and ensure cancellation check works
+                        // Compare is_suspended as number (0 = active) and check if cancellation info is empty
                         const isActive =
                           membership.is_suspended === 0 &&
                           (!membership.is_plan_cancelled || membership.is_plan_cancelled === "");
@@ -691,33 +691,40 @@ export default function ProfilePage() {
                   <CardDescription>Histórico de pagamentos do seu plano</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {memberPayments && memberPayments.length > 0 ? (
+                  {memberPayments &&
+                  memberPayments.response &&
+                  memberPayments.response.result &&
+                  memberPayments.response.result.payments &&
+                  memberPayments.response.result.payments.length > 0 ? (
                     <div className="space-y-4">
-                      {memberPayments.map((payment) => (
+                      {memberPayments.response.result.payments.map((payment) => (
                         <div
-                          key={payment.id}
+                          key={payment.arm_log_id}
                           className="p-4 border rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start gap-2"
                         >
                           <div>
-                            <p className="font-medium text-gray-800">{payment.payment_date}</p>
+                            <p className="font-medium text-gray-800">{payment.arm_payment_date}</p>
                             <p className="text-sm text-gray-600">
                               Valor:{" "}
                               <span className="font-semibold">
-                                {payment.amount} {payment.currency}
+                                {payment.arm_paid_amount}
                               </span>
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Plano: <span className="font-semibold">{payment.arm_plan}</span>
                             </p>
                           </div>
                           <div>
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                payment.payment_status.toLowerCase() === "paid"
+                                payment.arm_payment_status.toLowerCase() === "success"
                                   ? "bg-green-500 text-white"
-                                  : payment.payment_status.toLowerCase() === "pending"
+                                  : payment.arm_payment_status.toLowerCase() === "pending"
                                   ? "bg-yellow-500 text-white"
                                   : "bg-red-500 text-white"
                               }`}
                             >
-                              {payment.payment_status.toUpperCase()}
+                              {payment.arm_payment_status_text.toUpperCase()}
                             </span>
                           </div>
                         </div>
