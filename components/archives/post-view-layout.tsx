@@ -430,11 +430,13 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
       
       {/* Modal overlay if user has no access */}
       {!hasAccess && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white p-6 rounded shadow-lg max-w-md mx-auto text-center">
-            <h2 className="text-xl font-bold mb-4">Acesso Restrito</h2>
-            <p className="mb-4">
-              Você precisa estar logado e possuir o plano "Plano Mensal" ativo ou o plano com arm_plan_id 4 para acessar este conteúdo.
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-xl max-w-md mx-auto text-center">
+            <h2 className="text-2xl font-semibold dark:text-white mb-4">
+              Acesso Restrito
+            </h2>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Você precisa estar logado e possuir o plano activo para acessar este conteúdo.
             </p>
             <Button onClick={() => window.location.href="/profile"} className="w-full">
               Ir para Assinatura
