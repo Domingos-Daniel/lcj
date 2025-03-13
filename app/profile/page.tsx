@@ -17,10 +17,11 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useRouter } from "next/navigation";
+import { Progress } from "@/components/ui/progress";
 import { Facebook } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // Função para verificar a força da senha
 function getPasswordStrength(password: string): { strength: number; feedback: string } {
@@ -52,6 +53,33 @@ function getPasswordStrength(password: string): { strength: number; feedback: st
   return { strength, feedback };
 }
 
+const ARMemberAPIKey = process.env.NEXT_PUBLIC_ARMEMBER_KEY;
+async function fetchARMemberData(endpoint: string, userId: string, params: Record<string, string> = {}) {
+  try {
+    const baseUrl = new URL(`https://lcj-educa.com/`);
+    baseUrl.searchParams.append("rest_route", `/armember/v1/${endpoint}`);
+    baseUrl.searchParams.append("arm_api_key", ARMemberAPIKey || "");
+    baseUrl.searchParams.append("arm_user_id", userId);
+        const url = new URL(baseUrl);
+
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, value);
+    });
+
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      console.error(`Erro ao buscar dados ARMember (${endpoint}):`, response.status, await response.text());
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Erro ao buscar dados ARMember (${endpoint}):`, error);
+    return null;
+  }
+}
+
 export default function ProfilePage() {
   const { user, logout, loading, refreshUserData } = useAuth();
   const { toast } = useToast();
@@ -77,6 +105,11 @@ export default function ProfilePage() {
   const [passwordStrength, setPasswordStrength] = useState({ strength: 0, feedback: "" });
   const fullName = `${userData.firstName} ${userData.lastName}`.trim();
 
+  // ARMember Data States
+  const [memberMemberships, setMemberMemberships] = useState<any[]>([]);
+  const [memberPayments, setMemberPayments] = useState<any[]>([]);
+  const [memberDetails, setMemberDetails] = useState<any>(null);
+
   // Carregar dados do usuário no estado
   useEffect(() => {
     if (user) {
@@ -97,6 +130,25 @@ export default function ProfilePage() {
       refreshUserData();
     }
   }, [user, refreshUserData]);
+
+  // Carregar dados do ARMember
+  useEffect(() => {
+    if (user?.id) {
+      const userId = String(user.id); // Certifique-se de que user.id é uma string
+      
+      // Buscar detalhes do membro
+      fetchARMemberData("arm_member_details", userId)
+        .then(data => setMemberDetails(data));
+
+      // Buscar lista de associações do membro
+      fetchARMemberData("arm_member_memberships", userId)
+        .then(data => setMemberMemberships(data));
+
+      // Buscar transações de pagamento do membro
+      fetchARMemberData("arm_member_payments", userId)
+        .then(data => setMemberPayments(data));
+    }
+  }, [user?.id]);
 
   // Atualizar força da senha quando a nova senha muda
   useEffect(() => {
@@ -345,6 +397,8 @@ export default function ProfilePage() {
             <TabsList className="mb-4">
               <TabsTrigger value="profile">Perfil</TabsTrigger>
               <TabsTrigger value="security">Segurança</TabsTrigger>
+              <TabsTrigger value="membership">Plano</TabsTrigger>
+              <TabsTrigger value="payments">Pagamentos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
@@ -540,27 +594,14 @@ export default function ProfilePage() {
                     {userData.newPassword && (
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs">
-                          <span>Força da senha</span>
-                          <span className={
-                            passwordStrength.strength < 25 ? "text-red-500" :
-                              passwordStrength.strength < 50 ? "text-orange-500" :
-                                passwordStrength.strength < 75 ? "text-yellow-500" :
-                                  "text-green-500"
-                          }>
-                            {passwordStrength.feedback}
-                          </span>
+                          
+                          
                         </div>
                         <Progress
                           value={passwordStrength.strength}
                           className={`h-1 ${getProgressColor(passwordStrength.strength)}`}
                         />
-                        <ul className="text-xs space-y-1 text-muted-foreground mt-2">
-                          <li className={/[A-Z]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos uma letra maiúscula</li>
-                          <li className={/[a-z]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos uma letra minúscula</li>
-                          <li className={/[0-9]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos um número</li>
-                          <li className={/[^A-Za-z0-9]/.test(userData.newPassword) ? "text-green-500" : ""}>• Pelo menos um caractere especial</li>
-                          <li className={userData.newPassword.length >= 8 ? "text-green-500" : ""}>• Mínimo de 8 caracteres</li>
-                        </ul>
+                        
                       </div>
                     )}
                   </div>
@@ -577,43 +618,60 @@ export default function ProfilePage() {
                       type="password"
                       placeholder="Confirme sua nova senha"
                     />
-                    {userData.newPassword && userData.confirmPassword && userData.newPassword !== userData.confirmPassword && (
-                      <p className="text-xs text-red-500">
-                        As senhas não coincidem
-                      </p>
-                    )}
+                    
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button
-                    onClick={handleSave}
-                    className="w-full"
-                    disabled={
-                      isSaving ||
-                      (userData.newPassword &&
-                        (
-                          passwordStrength.strength < 50 ||
-                          userData.newPassword !== userData.confirmPassword ||
-                          (!user?.oauth && !userData.currentPassword)
-                        )
-                      )
-                    }
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Salvando...
-                      </>
-                    ) : "Atualizar Senha"}
-                  </Button>
+                  
                 </CardFooter>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="membership">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Plano de Associação</CardTitle>
+                  <CardDescription>Detalhes do seu plano atual</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {memberDetails ? (
+                    <>
+                      <p>Status: {memberDetails.status}</p>
+                      <p>Plano: {memberDetails.plan_name}</p>
+                      <p>Expira em: {memberDetails.expiry_date}</p>
+                      {/* Adicione mais detalhes conforme necessário */}
+                    </>
+                  ) : (
+                    <p>Carregando informações do plano...</p>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="payments">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transações de Pagamento</CardTitle>
+                  <CardDescription>Histórico de pagamentos do seu plano</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {memberPayments && memberPayments.length > 0 ? (
+                    <ul>
+                      {memberPayments.map((payment) => (
+                        <li key={payment.id}>
+                          {payment.payment_date} - {payment.amount} {payment.currency} - {payment.payment_status}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>Nenhum pagamento encontrado.</p>
+                  )}
+                </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
       </div>
-
-
     </div>
   );
 }
