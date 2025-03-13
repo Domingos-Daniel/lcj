@@ -631,18 +631,54 @@ export default function ProfilePage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Plano de Associação</CardTitle>
-                  <CardDescription>Detalhes do seu plano atual</CardDescription>
+                  <CardDescription>Detalhes dos seus planos de associação</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {memberDetails ? (
-                    <>
-                      <p>Status: {memberDetails.status}</p>
-                      <p>Plano: {memberDetails.plan_name}</p>
-                      <p>Expira em: {memberDetails.expiry_date}</p>
-                      {/* Adicione mais detalhes conforme necessário */}
-                    </>
+                  {memberMemberships &&
+                  memberMemberships.response &&
+                  memberMemberships.response.result &&
+                  memberMemberships.response.result.memberships &&
+                  memberMemberships.response.result.memberships.length > 0 ? (
+                    <div className="space-y-4">
+                      {memberMemberships.response.result.memberships.map((membership) => {
+                        // Adjusted check: compare is_suspended as number and ensure cancellation check works
+                        const isActive =
+                          membership.is_suspended === 0 &&
+                          (!membership.is_plan_cancelled || membership.is_plan_cancelled === "");
+                        return (
+                          <div key={membership.sr_no} className="border p-4 rounded-lg shadow-sm">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                  isActive
+                                    ? "bg-green-500 text-white"
+                                    : "bg-red-500 text-white"
+                                }`}
+                              >
+                                {isActive ? "ATIVO" : "SUSPENSO"}
+                              </span>
+                              <span className="font-bold text-lg">{membership.name}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Iniciado em:{" "}
+                              <span className="font-medium">{membership.start_date}</span>
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Renovação:{" "}
+                              <span className="font-medium">{membership.renew_date}</span>
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Expira:{" "}
+                              <span className="font-medium">{membership.end_date}</span>
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    <p>Carregando informações do plano...</p>
+                    <div className="p-4 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded">
+                      Sem nenhum plano ativo, por favor efetue o pagamento.
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -656,15 +692,41 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   {memberPayments && memberPayments.length > 0 ? (
-                    <ul>
+                    <div className="space-y-4">
                       {memberPayments.map((payment) => (
-                        <li key={payment.id}>
-                          {payment.payment_date} - {payment.amount} {payment.currency} - {payment.payment_status}
-                        </li>
+                        <div
+                          key={payment.id}
+                          className="p-4 border rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start gap-2"
+                        >
+                          <div>
+                            <p className="font-medium text-gray-800">{payment.payment_date}</p>
+                            <p className="text-sm text-gray-600">
+                              Valor:{" "}
+                              <span className="font-semibold">
+                                {payment.amount} {payment.currency}
+                              </span>
+                            </p>
+                          </div>
+                          <div>
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                payment.payment_status.toLowerCase() === "paid"
+                                  ? "bg-green-500 text-white"
+                                  : payment.payment_status.toLowerCase() === "pending"
+                                  ? "bg-yellow-500 text-white"
+                                  : "bg-red-500 text-white"
+                              }`}
+                            >
+                              {payment.payment_status.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   ) : (
-                    <p>Nenhum pagamento encontrado.</p>
+                    <div className="p-4 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded">
+                      Nenhuma transação de pagamento encontrada.
+                    </div>
                   )}
                 </CardContent>
               </Card>
