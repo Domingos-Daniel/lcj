@@ -41,13 +41,35 @@ export function Header() {
     setIsLoading(true);
   };
 
-  const handleSignOut = () => {
-    if (isAuthenticated) {
-      // Para usuários logados via formulário
-      logout();
-    } else {
-      // Para usuários NextAuth
-      signOut({ callbackUrl: "/auth" });
+  const handleSignOut = async () => {
+    try {
+      setIsLoading(true); // Ativar indicador de carregamento
+      
+      // Limpar tokens do localStorage
+      localStorage.removeItem("wp_token");
+      localStorage.removeItem("jwt_token");
+      
+      // Limpar cookies de autenticação
+      document.cookie = "wp_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie = "jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie = "next-auth.callback-url=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      
+      // Deslogar via sistema de autenticação personalizado (se aplicável)
+      if (isAuthenticated) {
+        await logout();
+      }
+      
+      // Deslogar via NextAuth (se aplicável)
+      if (nextAuthStatus === "authenticated") {
+        await signOut({ redirect: false });
+      }
+      
+      // Redirecionar para a página de login após logout completo
+      window.location.href = "/auth";
+    } catch (error) {
+      console.error("Erro durante logout:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
