@@ -22,6 +22,8 @@ import { Progress } from "@/components/ui/progress";
 import { Facebook } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import ProfileTutorialOverlay from "@/components/tutorials/profile-tutorial-overlay";
+import { HelpCircle } from "lucide-react"; // Import HelpCircle icon
 
 // Função para verificar a força da senha
 function getPasswordStrength(password: string): { strength: number; feedback: string } {
@@ -89,6 +91,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false); // State to control tutorial visibility
 
   const [userData, setUserData] = useState({
     firstName: "",
@@ -109,6 +112,14 @@ export default function ProfilePage() {
   const [memberMemberships, setMemberMemberships] = useState<any[]>([]);
   const [memberPayments, setMemberPayments] = useState<any[]>([]);
   const [memberDetails, setMemberDetails] = useState<any>(null);
+
+  useEffect(() => {
+    const tutorialShown = localStorage.getItem('profileTutorialShown');
+    if (!tutorialShown) {
+      setShowTutorial(true);
+      localStorage.setItem('profileTutorialShown', 'true');
+    }
+  }, []);
 
   // Carregar dados do usuário no estado
   useEffect(() => {
@@ -309,6 +320,14 @@ export default function ProfilePage() {
     );
   }
 
+  const closeTutorial = () => {
+    setShowTutorial(false);
+  };
+
+  const handleShowTutorial = () => {
+    setShowTutorial(true);
+  };
+
   return (
     <div className="container mx-auto py-10 px-4">
       <h1 className="text-3xl font-bold mb-8">Meu Perfil</h1>
@@ -396,9 +415,9 @@ export default function ProfilePage() {
           <Tabs defaultValue="profile">
             <TabsList className="mb-4">
               <TabsTrigger value="profile">Perfil</TabsTrigger>
-              <TabsTrigger value="security">Segurança</TabsTrigger>
               <TabsTrigger value="membership">Plano</TabsTrigger>
               <TabsTrigger value="payments">Pagamentos</TabsTrigger>
+              <TabsTrigger value="security">Segurança</TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile">
@@ -584,7 +603,7 @@ export default function ProfilePage() {
                       />
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       >
                         {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -741,6 +760,16 @@ export default function ProfilePage() {
           </Tabs>
         </div>
       </div>
+      {showTutorial && <ProfileTutorialOverlay onClose={closeTutorial} />}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200"
+        onClick={handleShowTutorial}
+        aria-label="Mostrar Tutorial"
+      >
+        <HelpCircle className="h-5 w-5" />
+      </Button>
     </div>
   );
 }
