@@ -69,6 +69,7 @@ export default function SignUpPage() {
     }
   };
 
+  // Modificando a função handleSubmit para incluir o AUTH_KEY
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -86,23 +87,36 @@ export default function SignUpPage() {
     setError("");
     
     try {
-      // Enviar dados para API do WordPress para registrar o usuário
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/lcj/v1/register`, {
+      // Formatação conforme documentação do Simple JWT Login
+      const baseUrl = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/simple-jwt-login/v1/users`;
+      
+      // Construir URL com parâmetros (conforme documentação)
+      const params = new URLSearchParams({
+        email: formData.email,
+        password: formData.password,
+        display_name: formData.name,
+        first_name: formData.name.split(' ')[0],
+        last_name: formData.name.split(' ').slice(1).join(' '),
+        // Adicionar AUTH_KEY necessário para registro
+        AUTH_KEY: process.env.NEXT_PUBLIC_AUTH_CODE || ""      });
+      
+      if (formData.phone) {
+        params.append("meta_input[phone]", formData.phone);
+      }
+      
+      const url = `${baseUrl}&${params.toString()}`;
+      
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-        }),
+          "Accept": "application/json"
+        }
       });
 
       const data = await response.json();
       
-      if (response.ok && data.success) {
+      if (response.ok) {
         toast({
           title: "Conta criada com sucesso!",
           description: "Redirecionando para a página de login...",
@@ -115,7 +129,10 @@ export default function SignUpPage() {
           router.push("/auth");
         }, 1500);
       } else {
-        throw new Error(data.message || "Erro ao criar conta. Tente novamente.");
+        // Extrair mensagem de erro específica da API
+        const errorMessage = data.message || data.error || "Erro ao criar conta. Tente novamente.";
+        console.error("Resposta de erro:", data);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("Erro no cadastro:", error);

@@ -389,36 +389,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, name: string): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/users/register`, {
-        method: "POST",
+      // Separar o nome completo em primeiro e último nome
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+      
+      // URL do endpoint de registro
+      const url = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/simple-jwt-login/v1/users`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: email,
-          email,
-          password,
-          name,
+          email: email,
+          password: password,
+          user_login: email,
+          first_name: firstName,
+          last_name: lastName,
+          display_name: name,
         }),
       });
-
+      
       const data = await response.json();
-
-      if (response.ok && data.token) {
-        login(data.token, {
-          id: data.user_id,
-          email: data.user_email,
-          name: data.user_display_name,
-          avatar: data.user_avatar,
-        });
-        return { success: true };
-      } else {
-        return { success: false, message: data.message || "Erro ao criar conta" };
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Erro ao criar conta');
       }
-    } catch (error) {
-      return { success: false, message: "Erro ao conectar com o servidor. Tente novamente mais tarde." };
+      
+      // Se o registro for bem-sucedido e incluir um JWT, faça login automaticamente
+      if (data.jwt) {
+        login(data.jwt, {
+          id: data.user_id,
+          name: name,
+          email: email
+        });
+      }
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Erro no cadastro:', error);
+      return { 
+        success: false, 
+        message: error.message || 'Ocorreu um erro ao criar sua conta. Tente novamente mais tarde.'
+      };
     }
   };
 
