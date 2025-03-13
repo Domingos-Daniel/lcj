@@ -25,6 +25,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 import { cn } from "@/lib/utils"
 import { Breadcrumbs } from "@/components/breadcrumbs"
+import { useAuth } from "@/context/auth-context"  // << Import useAuth
 
 interface PostViewLayoutProps {
   post: any
@@ -33,6 +34,42 @@ interface PostViewLayoutProps {
 }
 
 export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: PostViewLayoutProps) {
+  const { user } = useAuth()
+
+  // Fetch membership data from the API when a user is present
+  const [membership, setMembership] = useState<any>(null)
+  useEffect(() => {
+    async function fetchMembership() {
+      if (user) {
+        try {
+          // Replace with your actual API key and endpoint as needed
+          const apiKey = process.env.NEXT_PUBLIC_ARMEMBER_KEY;
+          const response = await fetch(`https://lcj-educa.com/?rest_route=/armember/v1/arm_member_memberships&arm_api_key=${apiKey}&arm_user_id=${user.id}`);
+          const data = await response.json();
+          if (data.status === 1 && data.response?.result?.memberships?.length > 0) {
+            const membershipData = data.response.result.memberships[0];
+            setMembership(membershipData);
+          } else {
+            setMembership(null);
+          }
+        } catch (error) {
+          console.error("Erro ao buscar associação:", error);
+          setMembership(null);
+        }
+      }
+    }
+    fetchMembership();
+  }, [user]);
+
+  // Access is granted only if the user is logged in and the membership matches:
+  // arm_plan_id === "4" or membership name === "Plano Mensal"
+  const hasAccess = Boolean(
+    user &&
+    membership &&
+    (membership.arm_plan_id === "4" || membership.name === "Plano Mensal")
+  )
+
+  // ... existing state and effects for bookmark, like, sidebar, etc.
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [likes, setLikes] = useState(post.likes || 0)
   const [hasLiked, setHasLiked] = useState(false)
@@ -150,7 +187,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
   }
   
   return (
-    <div className="container max-w-5xl py-6 md:py-8">
+    <div className="container max-w-5xl py-6 md:py-8 relative">
       {/* Barra de progresso */}
       <div
         className="fixed top-0 left-0 w-full h-2 bg-primary z-50"
@@ -256,7 +293,13 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
           </div>
           
           {/* Conteúdo principal do artigo - destacado e sem distrações */}
-          <article className="prose prose-lg dark:prose-invert max-w-none py-10 px-4 md:px-20 border-2 rounded-lg" ref={contentRef}>
+          <article
+            className={cn(
+              "prose prose-lg dark:prose-invert max-w-none py-10 px-4 md:px-20 border-2 rounded-lg",
+              !hasAccess && "filter blur-sm pointer-events-none"
+            )}
+            ref={contentRef}
+          >
             <div 
               className="formatted-content"
               dangerouslySetInnerHTML={{ __html: post.content }} 
@@ -384,6 +427,21 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
           )}
         </div>
       </div>
+      
+      {/* Modal overlay if user has no access */}
+      {!hasAccess && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded shadow-lg max-w-md mx-auto text-center">
+            <h2 className="text-xl font-bold mb-4">Acesso Restrito</h2>
+            <p className="mb-4">
+              Você precisa estar logado e possuir o plano "Plano Mensal" ativo ou o plano com arm_plan_id 4 para acessar este conteúdo.
+            </p>
+            <Button onClick={() => window.location.href="/profile"} className="w-full">
+              Ir para Assinatura
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

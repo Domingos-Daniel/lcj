@@ -764,7 +764,7 @@ export default function ProfilePage() {
       <Button
         variant="ghost"
         size="icon"
-        className="fixed bottom-4 right-4 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200"
+        className="fixed bottom-4 left-4 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200"
         onClick={handleShowTutorial}
         aria-label="Mostrar Tutorial"
       >
