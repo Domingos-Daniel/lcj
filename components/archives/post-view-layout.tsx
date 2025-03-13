@@ -256,7 +256,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
           </div>
           
           {/* Conteúdo principal do artigo - destacado e sem distrações */}
-          <article className="prose prose-lg dark:prose-invert max-w-none py-10 px-20 border-2 rounded-lg" ref={contentRef}>
+          <article className="prose prose-lg dark:prose-invert max-w-none py-10 px-4 md:px-20 border-2 rounded-lg" ref={contentRef}>
             <div 
               className="formatted-content"
               dangerouslySetInnerHTML={{ __html: post.content }} 

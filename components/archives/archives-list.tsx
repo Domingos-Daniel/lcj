@@ -421,7 +421,7 @@ function getArchiveCategory(archive: Archive): string | number {
                 </p>
                 
                 <div className="mt-4 pt-3 border-t">
-                  <Link href={`/arquivos/${getArchiveCategory(archive)}/${archive.id}`}>
+                  <a href={`/arquivos/${getArchiveCategory(archive)}/${archive.id}`} className="w-full">
                     <Button 
                       variant="outline" 
                       className="w-full flex justify-between items-center"
@@ -429,7 +429,7 @@ function getArchiveCategory(archive: Archive): string | number {
                       <span>Ver detalhes</span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </div>
             </Card>
@@ -536,7 +536,7 @@ function getArchiveCategory(archive: Archive): string | number {
                     )}
                   </div>
                   
-                  <Link href={`/arquivos/${getArchiveCategory(archive)}/${archive.id}`}>
+                  <a href={`/arquivos/${getArchiveCategory(archive)}/${archive.id}`} className="w-full inline-block">
                     <Button 
                       variant="default" 
                       size="sm"
@@ -545,7 +545,7 @@ function getArchiveCategory(archive: Archive): string | number {
                       Ver detalhes
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                  </Link>
+                  </a>
                 </div>
               </div>
             </div>
