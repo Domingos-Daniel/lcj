@@ -44,57 +44,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Função para buscar detalhes do usuário do WordPress
   const fetchWpUserDetails = async (token: string) => {
     try {
-      //console.log("Buscando detalhes do usuário com token:", token.substring(0, 10) + "...");
-      
-      // Usar token na URL em vez de no header
-      const url = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/details&token=${encodeURIComponent(token)}`;
-      //console.log("URL completa:", url);
-      
+      console.log("🔎 Token recebido antes da requisição:", token);
+
+      // Extrair informações do usuário do token JWT para debug
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log("📧 Email no token:", payload.email);
+          console.log("👤 Username no token:", payload.username);
+        }
+      } catch (e) {
+        console.error("Erro ao decodificar token:", e);
+      }
+
+      // Incluir token tanto no header quanto como parâmetro de URL
+      const url = `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/details`;
+
       const response = await fetch(url, {
         method: "GET",
         headers: { 
           "Content-Type": "application/json",
-          "Accept": "application/json"
+          "Accept": "application/json",
+          "Authorization": `Bearer ${token}`
         },
-        credentials: "omit" // Não enviar cookies para evitar conflitos
+        credentials: "omit"
       });
-      
-      //console.log("Status da resposta:", response.status, response.statusText);
-      
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Erro ao buscar detalhes do usuário:", response.status, response.statusText);
-        console.error("Texto do erro:", errorText);
+        // Se falhar, tentar com o token na URL
+        const urlWithToken = `${url}&token=${encodeURIComponent(token)}`;
+        console.log("🔄 Tentando com token na URL");
         
-        if (response.status === 401) {
-          console.error("Token inválido ou expirado");
-          
-          // Testar o endpoint de debug para verificar o problema
-          try {
-            const debugResponse = await fetch(
-              `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/debug-token&token=${encodeURIComponent(token)}`
-            );
-            const debugData = await debugResponse.json();
-            //console.log("Dados de debug do token:", debugData);
-          } catch (debugError) {
-            console.error("Erro ao verificar debug do token:", debugError);
-          }
+        const secondResponse = await fetch(urlWithToken, {
+          method: "GET",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          credentials: "omit"
+        });
+        
+        if (!secondResponse.ok) {
+          const errorText = await secondResponse.text();
+          console.error("❌ Erro na segunda tentativa:", secondResponse.status, errorText);
+          return null;
         }
-        return null;
+        
+        return await secondResponse.json();
       }
-      
+
       const userData = await response.json();
-      //console.log("Detalhes do usuário recebidos:", userData);
-      
-      // Verificar se o usuário fez login via OAuth
-      const isOAuthUser = userData.oauth_user === true;
-      
-      return {
-        ...userData,
-        oauth: isOAuthUser, // Adicionar a propriedade oauth
-      };
+      console.log("✅ Detalhes do usuário recebidos:", userData);
+
+      return userData;
     } catch (error) {
-      console.error("Erro ao carregar detalhes do usuário:", error);
+      console.error("❌ Erro ao carregar detalhes do usuário:", error);
       return null;
     }
   };
@@ -354,22 +359,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session, status, toast]);
 
   const login = (token: string, userData: User, redirectUrl?: string) => {
-    localStorage.setItem("wp_token", token);
+    // Log para debug
+    console.log("Login com token:", token);
+    console.log("Dados do usuário:", userData);
     
-    // Definir cookie com atributos apropriados para localhost
+    // Armazenar o token em ambos locais com o mesmo nome
+    localStorage.setItem("wp_token", token);
     document.cookie = `wp_token=${token}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax;`;
+    
+    // Armazenar também como jwt_token para compatibilidade
+    localStorage.setItem("jwt_token", token);
+    document.cookie = `jwt_token=${token}; path=/; max-age=${30 * 24 * 3600}; SameSite=Lax;`;
     
     // Limpar o cookie de callback do NextAuth
     document.cookie = "next-auth.callback-url=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
     
     setUser(userData);
     
-    if (redirectUrl) {
-      // Usar window.location para fazer um redirecionamento mais "forte"
-      window.location.href = redirectUrl;
-      // Alternativamente, você pode manter o router.push, mas talvez precise de
-      // return; para garantir que o redirecionamento aconteça antes de qualquer outro código
-    }
+    // Atualizar dados do usuário imediatamente
+    refreshUserData().then(() => {
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      }
+    });
   };
 
   const logout = () => {

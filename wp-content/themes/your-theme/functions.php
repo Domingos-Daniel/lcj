@@ -62,9 +62,10 @@ add_action('rest_api_init', function() {
         'callback'            => 'lcj_get_user_details',
         'permission_callback' => function($request) {
             $token = $request->get_param('token');
-            if ($token) {
-                return lcj_check_auth_token_param($token);
+            if ($token && lcj_check_auth_token_param($token)) {
+                return true;
             }
+            
             return lcj_check_auth_token($request);
         },
     ]);
@@ -134,85 +135,116 @@ add_action('rest_pre_serve_request', function() {
 
 // Verificar token via parâmetro URL
 function lcj_check_auth_token_param($token) {
-    lcj_log("Verificando token via parâmetro URL", substr($token, 0, 10) . "...");
-    
     if (empty($token)) {
-        lcj_log("Token vazio");
         return false;
     }
     
-    // Buscar usuário pelo token como valor simples
-    global $wpdb;
+    lcj_log("Verificando token via parâmetro", substr($token, 0, 10) . "...");
     
-    // Verificar no formato simples
-    $user_id = $wpdb->get_var($wpdb->prepare(
-        "SELECT user_id FROM {$wpdb->usermeta} 
-         WHERE meta_key = 'lcj_auth_token_value' 
-         AND meta_value = %s",
-        $token
+    // Tentar primeiro validar como token armazenado
+    $users = get_users(array(
+        'meta_key' => 'lcj_auth_token_value',
+        'meta_value' => $token,
     ));
     
-    // Se não encontrar, verificar no formato serializado
-    if (!$user_id) {
-        lcj_log("Token não encontrado como valor simples, verificando formato serializado");
-        
-        $users_with_tokens = $wpdb->get_results(
-            "SELECT user_id, meta_value FROM {$wpdb->usermeta} 
-             WHERE meta_key = 'lcj_auth_token'"
-        );
-        
-        foreach ($users_with_tokens as $user_data) {
-            $stored_data = maybe_unserialize($user_data->meta_value);
+    if (!empty($users)) {
+        $user = $users[0];
+        lcj_log("Usuário encontrado por token direto", $user->ID);
+        wp_set_current_user($user->ID);
+        return $user;
+    }
+    
+    // Se não encontrou, tentar decodificar como JWT
+    try {
+        // Decodificar JWT
+        $token_parts = explode('.', $token);
+        if (count($token_parts) == 3) {
+            $payload = json_decode(base64_decode($token_parts[1]), true);
             
-            if (is_array($stored_data) && 
-                isset($stored_data['token']) && 
-                $stored_data['token'] === $token) {
+            if (isset($payload['email'])) {
+                $email = sanitize_email($payload['email']);
+                $user = get_user_by('email', $email);
                 
-                $user_id = $user_data->user_id;
+                if ($user) {
+                    lcj_log("Usuário encontrado por email no JWT", $user->ID);
+                    wp_set_current_user($user->ID);
+                    
+                    // Opcional: salvar o token para uso futuro
+                    update_user_meta($user->ID, 'lcj_auth_token_value', $token);
+                    
+                    return $user;
+                }
+            }
+            
+            if (isset($payload['username'])) {
+                $username = sanitize_user($payload['username']);
+                $user = get_user_by('login', $username);
                 
-                // Converter para novo formato
-                update_user_meta($user_id, 'lcj_auth_token_value', $token);
-                update_user_meta($user_id, 'lcj_auth_token_expires', 
-                    isset($stored_data['expires']) ? $stored_data['expires'] : time() + (30 * DAY_IN_SECONDS)
-                );
-                
-                lcj_log("Token encontrado no formato serializado", $user_id);
-                break;
+                if ($user) {
+                    lcj_log("Usuário encontrado por username no JWT", $user->ID);
+                    wp_set_current_user($user->ID);
+                    return $user;
+                }
             }
         }
+    } catch (Exception $e) {
+        lcj_log("Erro ao decodificar JWT", $e->getMessage());
     }
     
-    if (!$user_id) {
-        lcj_log("Token não encontrado");
-        return false;
-    }
-    
-    // Token encontrado, definir usuário atual
-    wp_set_current_user($user_id);
-    lcj_log("Token válido, usuário definido", $user_id);
-    return true;
+    return false;
 }
 
 // Verificar token via header Authorization
 function lcj_check_auth_token($request) {
     $headers = $request->get_headers();
-    
+
     if (!isset($headers['authorization']) || empty($headers['authorization'][0])) {
         lcj_log("Nenhum header de autorização encontrado");
         return false;
     }
-    
+
     $auth_header = $headers['authorization'][0];
     if (strpos($auth_header, 'Bearer ') !== 0) {
         lcj_log("Header de autorização não começa com Bearer");
         return false;
     }
-    
+
     $token = substr($auth_header, 7);
-    
-    // Usar a função de verificação de token por parâmetro
-    return lcj_check_auth_token_param($token);
+
+    // Decodificar JWT manualmente para verificar se contém email ou username
+    $token_parts = explode(".", $token);
+    if (count($token_parts) !== 3) {
+        lcj_log("Formato de token inválido");
+        return false;
+    }
+
+    $payload = json_decode(base64_decode(str_replace('_', '/', str_replace('-', '+', $token_parts[1]))), true);
+
+    if (!isset($payload['email']) && !isset($payload['username'])) {
+        lcj_log("Nenhuma propriedade válida encontrada no JWT");
+        return false;
+    }
+
+    global $wpdb;
+    $user = null;
+
+    if (isset($payload['email'])) {
+        $user = get_user_by('email', sanitize_email($payload['email']));
+    }
+
+    if (!$user && isset($payload['username'])) {
+        $user = get_user_by('login', sanitize_user($payload['username']));
+    }
+
+    if (!$user) {
+        lcj_log("Usuário não encontrado no banco de dados");
+        return false;
+    }
+
+    wp_set_current_user($user->ID);
+    return true;
 }
+
 
 // Endpoint para autenticação Google
 function lcj_handle_google_oauth($request) {
@@ -453,11 +485,7 @@ function lcj_get_user_details($request) {
     $facebook_image = get_user_meta($current_user->ID, 'facebook_profile_picture', true);
     
     if (!$avatar_url) {
-        if ($google_image) {
-            $avatar_url = $google_image;
-        } else if ($facebook_image) {
-            $avatar_url = $facebook_image;
-        }
+        $avatar_url = $google_image ?: $facebook_image ?: '';
     }
     
     // Obter campos personalizados
