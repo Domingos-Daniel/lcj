@@ -107,6 +107,41 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
+  useEffect(() => {
+    const handleContextMenu = (e: Event) => {
+      e.preventDefault();
+    };
+  
+    const handleCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+    };
+  
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Disable F12 (keyCode 123)
+      if (e.keyCode === 123) {
+        e.preventDefault();
+      }
+      // Disable Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J
+      if (e.ctrlKey && e.shiftKey && ["I", "C", "J"].includes(e.key)) {
+        e.preventDefault();
+      }
+      // Disable Ctrl+U
+      if (e.ctrlKey && e.key === "U") {
+        e.preventDefault();
+      }
+    };
+  
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("copy", handleCopy);
+    document.addEventListener("keydown", handleKeyDown);
+  
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("copy", handleCopy);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+  
   const handleBookmark = () => {
     if (typeof window !== 'undefined') {
       const savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
