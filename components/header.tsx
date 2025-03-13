@@ -12,6 +12,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { useEffect, useState } from "react";
 import { useLoading } from "./loading-provider";
 import { useSession, signOut } from "next-auth/react";
+import { useAuth } from "@/context/auth-context";
 
 const LOGO_DARK = "https://lcj-educa.com/wp-content/uploads/2024/05/2-e1715125937459.png";
 const LOGO_LIGHT = "https://lcj-educa.com/wp-content/uploads/2024/05/1-e1715125891640.png";
@@ -21,7 +22,14 @@ export function Header() {
   const { theme, mounted } = useTheme();
   const { setIsLoading } = useLoading();
   const [currentLogo, setCurrentLogo] = useState(LOGO_LIGHT);
-  const { data: session, status } = useSession();
+  const { data: session, status: nextAuthStatus } = useSession();
+  const { user, isAuthenticated, logout } = useAuth();
+
+  // Determinar se o usuário está autenticado por qualquer um dos métodos
+  const isUserAuthenticated = isAuthenticated || nextAuthStatus === "authenticated";
+  
+  // Dados do usuário, priorizando o token personalizado sobre o NextAuth
+  const userData = user || session?.user;
 
   useEffect(() => {
     if (mounted) {
@@ -31,6 +39,16 @@ export function Header() {
 
   const handleNavigation = () => {
     setIsLoading(true);
+  };
+
+  const handleSignOut = () => {
+    if (isAuthenticated) {
+      // Para usuários logados via formulário
+      logout();
+    } else {
+      // Para usuários NextAuth
+      signOut({ callbackUrl: "/auth" });
+    }
   };
 
   if (!mounted) {
@@ -68,26 +86,24 @@ export function Header() {
             <Input type="search" placeholder="Pesquisar aqui..." className="w-[200px] lg:w-[300px]" />
             <Search className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground" />
           </div>
-          {status === "authenticated" ? (
+          {isUserAuthenticated ? (
             <div className="flex items-center gap-4">
-              {session.user?.image ? (
-                <Link href={`/profile`}>
+              <Link href={`/profile`}>
+                {userData?.image || userData?.avatar ? (
                   <img
-                    src={session.user.image}
+                    src={userData?.image || userData?.avatar}
                     alt="Avatar"
                     className="h-8 w-8 rounded-full cursor-pointer"
                   />
-                </Link>
-              ) : (
-                <Link href={`/profile`}>
+                ) : (
                   <div className="h-8 w-8 cursor-pointer rounded-full bg-primary flex items-center justify-center text-white">
-                    {session.user?.email?.charAt(0).toUpperCase()}
+                    {(userData?.name || userData?.email || "").charAt(0).toUpperCase()}
                   </div>
-                </Link>
-              )}
+                )}
+              </Link>
               <button
-                className="text-sm text-gray-700 hover:underline"
-                onClick={() => signOut({ callbackUrl: "/auth" })}
+                className="text-sm text-gray-700 hover:underline dark:text-gray-300"
+                onClick={handleSignOut}
               >
                 Sair
               </button>

@@ -95,7 +95,7 @@ export default function AuthPage() {
       );
 
       const data = await response.json();
-      console.log("Resposta do login:", data);
+      //console.log("Resposta do login:", data);
 
       if (!response.ok || !data.success || !data.data?.jwt) {
         let errorMessage = "Erro ao fazer login.";
@@ -132,10 +132,10 @@ export default function AuthPage() {
       toast({
         title: "Login bem-sucedido!",
         description: "Redirecionando...",
-        duration: 3000,
+        duration: 1000,
       });
 
-      console.log("Redirecionando para o /profile com token:", token);
+      //console.log("Redirecionando para o /profile com token:", token);
       login(token, data.data.user, "/profile");
     } catch (error) {
       setError("Erro ao conectar com o servidor.");

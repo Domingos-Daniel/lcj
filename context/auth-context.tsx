@@ -44,15 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Função para buscar detalhes do usuário do WordPress
   const fetchWpUserDetails = async (token: string) => {
     try {
-      console.log("🔎 Token recebido antes da requisição:", token);
+      //console.log("🔎 Token recebido antes da requisição:", token);
 
       // Extrair informações do usuário do token JWT para debug
       try {
         const tokenParts = token.split('.');
         if (tokenParts.length === 3) {
           const payload = JSON.parse(atob(tokenParts[1]));
-          console.log("📧 Email no token:", payload.email);
-          console.log("👤 Username no token:", payload.username);
+          //console.log("📧 Email no token:", payload.email);
+          //console.log("👤 Username no token:", payload.username);
         }
       } catch (e) {
         console.error("Erro ao decodificar token:", e);
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok) {
         // Se falhar, tentar com o token na URL
         const urlWithToken = `${url}&token=${encodeURIComponent(token)}`;
-        console.log("🔄 Tentando com token na URL");
+        //console.log("🔄 Tentando com token na URL");
         
         const secondResponse = await fetch(urlWithToken, {
           method: "GET",
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const userData = await response.json();
-      console.log("✅ Detalhes do usuário recebidos:", userData);
+      //console.log("✅ Detalhes do usuário recebidos:", userData);
 
       return userData;
     } catch (error) {
@@ -360,8 +360,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (token: string, userData: User, redirectUrl?: string) => {
     // Log para debug
-    console.log("Login com token:", token);
-    console.log("Dados do usuário:", userData);
+    //console.log("Login com token:", token);
+    //console.log("Dados do usuário:", userData);
     
     // Armazenar o token em ambos locais com o mesmo nome
     localStorage.setItem("wp_token", token);
