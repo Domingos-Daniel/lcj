@@ -66,7 +66,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
   const hasAccess = Boolean(
     user &&
     membership &&
-    (membership.arm_plan_id === "4" || membership.name === "Plano Mensal")
+    (membership.arm_plan_id === process.env.NEXT_ARMEMBER_PLAN_ID || membership.name === "Plano Mensal")
   )
 
   // ... existing state and effects for bookmark, like, sidebar, etc.
