@@ -150,15 +150,18 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     const isSearchElement = (element: Node | null): boolean => {
       if (!element) return false;
       
-      // Check if element is an Element type first (not a text node or comment)
-      if (!(element instanceof Element)) return false;
+      // Check if element is an Element node type (not a text node or comment)
+      if (element.nodeType !== Node.ELEMENT_NODE) return false;
+      
+      // Now we can safely cast to HTMLElement and use its properties
+      const htmlElement = element as HTMLElement;
       
       // Allow search modal and inputs
       const isSearchInput = 
-        element.tagName === 'INPUT' || 
-        element.classList?.contains('search-modal') ||
-        element.closest('[role="dialog"]') !== null ||
-        element.closest('.search-modal') !== null;
+        htmlElement.tagName === 'INPUT' || 
+        htmlElement.classList?.contains('search-modal') ||
+        !!htmlElement.closest('[role="dialog"]') ||
+        !!htmlElement.closest('.search-modal');
       
       return isSearchInput;
     };
