@@ -144,40 +144,184 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
+  // Enhanced useEffect for content protection
   useEffect(() => {
     const handleContextMenu = (e: Event) => {
+      // Allow context menu inside content area for highlights
+      if (contentRef.current?.contains(e.target as Node) && hasAccess) {
+        return;
+      }
       e.preventDefault();
     };
   
     const handleCopy = (e: ClipboardEvent) => {
+      // Allow copy inside content area for highlights
+      if (contentRef.current?.contains(e.target as Node) && hasAccess) {
+        return;
+      }
       e.preventDefault();
     };
   
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Disable F12 (keyCode 123)
-      if (e.keyCode === 123) {
+      // Always prevent developer tools shortcuts
+      if (e.keyCode === 123) { // F12
         e.preventDefault();
       }
-      // Disable Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J
       if (e.ctrlKey && e.shiftKey && ["I", "C", "J"].includes(e.key)) {
         e.preventDefault();
       }
-      // Disable Ctrl+U
       if (e.ctrlKey && e.key === "U") {
         e.preventDefault();
+      }
+      
+      // Prevent print screen
+      if (e.keyCode === 44) {
+        e.preventDefault();
+        toast({
+          title: "Captura de tela não permitida",
+          description: "Este conteúdo é protegido contra capturas de tela",
+          variant: "destructive",
+        });
+      }
+      
+      // Prevent printing shortcuts
+      if ((e.ctrlKey && e.key === "p") || (e.metaKey && e.key === "p")) {
+        e.preventDefault();
+        toast({
+          title: "Impressão não permitida",
+          description: "Este conteúdo não pode ser impresso",
+          variant: "destructive",
+        });
+      }
+      
+      // Prevent additional copy shortcuts
+      if ((e.ctrlKey && e.key === "c") || (e.metaKey && e.key === "c")) {
+        if (!contentRef.current?.contains(e.target as Node) || !hasAccess) {
+          e.preventDefault();
+        }
+      }
+    };
+    
+    // Prevent selection of text
+    const handleSelection = (e: Event) => {
+      if (!hasAccess || !contentRef.current?.contains(e.target as Node)) {
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+    
+    // Prevent printing
+    const handleBeforePrint = () => {
+      if (!hasAccess) {
+        document.body.innerHTML = "Impressão não autorizada";
+      }
+    };
+    
+    // Detect screen capture attempts (modern browsers)
+    const detectScreenCapture = async () => {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          if (stream) {
+            toast({
+              title: "Compartilhamento de tela detectado",
+              description: "A captura de tela deste conteúdo não é permitida",
+              variant: "destructive",
+            });
+            
+            // Stop all tracks to prevent screen sharing
+            stream.getTracks().forEach(track => track.stop());
+          }
+        }
+      } catch (err) {
+        // User denied screen share permission or other error
+        console.log("Screen capture detection error or user denied permission");
       }
     };
   
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("copy", handleCopy);
+    document.addEventListener("cut", handleCopy);
+    document.addEventListener("paste", handleCopy);
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mouseup", handleSelection);
+    document.addEventListener("selectionchange", handleSelection);
+    window.addEventListener("beforeprint", handleBeforePrint);
+    
+    // Only add screen capture detection if user doesn't have access
+    if (!hasAccess) {
+      detectScreenCapture();
+    }
   
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("copy", handleCopy);
+      document.removeEventListener("cut", handleCopy);
+      document.removeEventListener("paste", handleCopy);
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mouseup", handleSelection);
+      document.removeEventListener("selectionchange", handleSelection);
+      window.removeEventListener("beforeprint", handleBeforePrint);
     };
-  }, []);
+  }, [hasAccess, contentRef]);
+  
+  // Add dynamic watermark to the content when user has access but needs anti-screenshot measures
+  const addDynamicWatermark = () => {
+    if (!hasAccess || !user) return null;
+    
+    return (
+      <div className="absolute inset-0 pointer-events-none select-none">
+        {[...Array(10)].map((_, i) => (
+          <div 
+            key={i}
+            className="absolute text-black/5 dark:text-white/5 text-lg font-bold whitespace-nowrap transform -rotate-45"
+            style={{
+              top: `${10 + (i * 20)}%`,
+              left: `-5%`,
+              right: 0,
+            }}
+          >
+            {user.email} • {new Date().toLocaleDateString()} • {user.id}
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  // Add style tag to disable selection and printing at CSS level
+  useEffect(() => {
+    if (!hasAccess) {
+      // Add CSS to disable user selection when no access
+      const style = document.createElement('style');
+      style.id = 'anti-copy-style';
+      style.innerHTML = `
+        body {
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          -webkit-print-color-adjust: exact;
+        }
+        @media print {
+          body * { 
+            display: none !important; 
+          }
+          body:after {
+            content: "Impressão não autorizada";
+            display: block !important;
+            font-size: 48px;
+            text-align: center;
+            margin: 100px auto;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      return () => {
+        const styleElement = document.getElementById('anti-copy-style');
+        if (styleElement) styleElement.remove();
+      };
+    }
+  }, [hasAccess]);
   
   const handleBookmark = () => {
     if (typeof window !== 'undefined') {
@@ -367,20 +511,26 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
           {/* Conteúdo principal do artigo - destacado e sem distrações */}
           <article
             className={cn(
-              "prose prose-lg dark:prose-invert max-w-none py-10 px-4 md:px-20 border-2 rounded-lg",
+              "prose prose-lg dark:prose-invert max-w-none py-10 px-4 md:px-20 border-2 rounded-lg relative",
               !hasAccess && "filter blur-sm pointer-events-none"
             )}
             ref={contentRef}
           >
+            {addDynamicWatermark()}
             <div 
               className="formatted-content"
               dangerouslySetInnerHTML={{ __html: post.content }} 
             />
             
+            <Separator className="mt-2" />
+            
+            
             {/* Seção somente impressão */}
             <div className="hidden print:block mt-6 pt-6 border-t">
               <p className="text-sm text-muted-foreground">
                 Este documento foi impresso de {typeof window !== 'undefined' ? window.location.origin : ''} em {format(new Date(), "dd/MM/yyyy 'às' HH:mm")}.
+                <br />
+                Documento protegido. Uso autorizado apenas para {user?.email || "usuários autorizados"}.
               </p>
             </div>
           </article>
