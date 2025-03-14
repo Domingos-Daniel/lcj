@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useLoading } from "./loading-provider";
 import { useSession, signOut } from "next-auth/react";
 import { useAuth } from "@/context/auth-context";
+import { SearchModal } from "@/components/search-modal";
 
 const LOGO_DARK = "https://lcj-educa.com/wp-content/uploads/2024/05/2-e1715125937459.png";
 const LOGO_LIGHT = "https://lcj-educa.com/wp-content/uploads/2024/05/1-e1715125891640.png";
@@ -24,6 +25,7 @@ export function Header() {
   const [currentLogo, setCurrentLogo] = useState(LOGO_LIGHT);
   const { data: session, status: nextAuthStatus } = useSession();
   const { user, isAuthenticated, logout } = useAuth();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Determinar se o usuário está autenticado por qualquer um dos métodos
   const isUserAuthenticated = isAuthenticated || nextAuthStatus === "authenticated";
@@ -73,6 +75,11 @@ export function Header() {
     }
   };
 
+  // Function to open search modal
+  const openSearchModal = () => {
+    setIsSearchOpen(true);
+  };
+
   if (!mounted) {
     return (
       <header className="sticky top-0 z-50 w-full h-14 border-b bg-background/95">
@@ -84,60 +91,77 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 dark:bg-gray-950/95 dark:border-gray-800">
-      <div className="container flex h-14 items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" onClick={handleNavigation}>
-            <Image
-              src={currentLogo}
-              alt="LCJ Logo"
-              width={100}
-              height={40}
-              priority
-              className="w-auto h-8 transition-all duration-300"
-            />
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <nav className="hidden md:flex items-center space-x-6">
-            <MainNav currentPath={pathname} />
-          </nav>
-          <MobileNav currentPath={pathname} />
-          <div className="hidden md:flex relative">
-            <Input type="search" placeholder="Pesquisar aqui..." className="w-[200px] lg:w-[300px]" />
-            <Search className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground" />
-          </div>
-          {isUserAuthenticated ? (
-            <div className="flex items-center gap-4">
-              <Link href={`/profile`}>
-                {userData?.image || userData?.avatar ? (
-                  <img
-                    src={userData?.image || userData?.avatar}
-                    alt="Avatar"
-                    className="h-8 w-8 rounded-full cursor-pointer"
-                  />
-                ) : (
-                  <div className="h-8 w-8 cursor-pointer rounded-full bg-primary flex items-center justify-center text-white">
-                    {(userData?.name || userData?.email || "").charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </Link>
-              <button
-                className="text-sm text-gray-700 hover:underline dark:text-gray-300"
-                onClick={handleSignOut}
-              >
-                Sair
-              </button>
-            </div>
-          ) : (
-            <Link href="/auth" onClick={handleNavigation}>
-              <Button id="user-account">Entrar</Button>
+    <>
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 dark:bg-gray-950/95 dark:border-gray-800">
+        <div className="container flex h-14 items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" onClick={handleNavigation}>
+              <Image
+                src={currentLogo}
+                alt="LCJ Logo"
+                width={100}
+                height={40}
+                priority
+                className="w-auto h-8 transition-all duration-300"
+              />
             </Link>
-          )}
-          <ThemeSwitcher />
+          </div>
+
+          <div className="flex items-center gap-4">
+            <nav className="hidden md:flex items-center space-x-6">
+              <MainNav currentPath={pathname} />
+            </nav>
+            <MobileNav currentPath={pathname} />
+            <div 
+              className="hidden md:flex relative cursor-pointer" 
+              onClick={openSearchModal}
+            >
+              <Input 
+                type="search" 
+                placeholder="Pesquisar aqui..." 
+                className="w-[200px] lg:w-[300px] cursor-pointer" 
+                readOnly 
+                onClick={openSearchModal}
+              />
+              <Search 
+                className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground cursor-pointer" 
+                onClick={openSearchModal}
+              />
+            </div>
+            {isUserAuthenticated ? (
+              <div className="flex items-center gap-4">
+                <Link href={`/profile`}>
+                  {userData?.image || userData?.avatar ? (
+                    <img
+                      src={userData?.image || userData?.avatar}
+                      alt="Avatar"
+                      className="h-8 w-8 rounded-full cursor-pointer"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 cursor-pointer rounded-full bg-primary flex items-center justify-center text-white">
+                      {(userData?.name || userData?.email || "").charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </Link>
+                <button
+                  className="text-sm text-gray-700 hover:underline dark:text-gray-300"
+                  onClick={handleSignOut}
+                >
+                  Sair
+                </button>
+              </div>
+            ) : (
+              <Link href="/auth" onClick={handleNavigation}>
+                <Button id="user-account">Entrar</Button>
+              </Link>
+            )}
+            <ThemeSwitcher />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      
+      {/* Search Modal */}
+      <SearchModal open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+    </>
   );
 }

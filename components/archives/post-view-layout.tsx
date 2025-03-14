@@ -146,23 +146,44 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
   
   // Enhanced useEffect for content protection
   useEffect(() => {
+    // Helper function to check if an element is part of the search modal or input
+    const isSearchElement = (element: Node | null): boolean => {
+      if (!element) return false;
+      
+      // Allow search modal and inputs
+      const isSearchInput = 
+        (element as HTMLElement).tagName === 'INPUT' || 
+        (element as HTMLElement).classList?.contains('search-modal') ||
+        (element as HTMLElement).closest('[role="dialog"]') !== null ||
+        (element as HTMLElement).closest('.search-modal') !== null;
+      
+      return isSearchInput;
+    };
+
     const handleContextMenu = (e: Event) => {
-      // Allow context menu inside content area for highlights
-      if (contentRef.current?.contains(e.target as Node) && hasAccess) {
+      // Allow context menu inside content area for highlights or search elements
+      if ((contentRef.current?.contains(e.target as Node) && hasAccess) || 
+          isSearchElement(e.target as Node)) {
         return;
       }
       e.preventDefault();
     };
   
     const handleCopy = (e: ClipboardEvent) => {
-      // Allow copy inside content area for highlights
-      if (contentRef.current?.contains(e.target as Node) && hasAccess) {
+      // Allow copy inside content area for highlights or search elements
+      if ((contentRef.current?.contains(e.target as Node) && hasAccess) || 
+          isSearchElement(e.target as Node)) {
         return;
       }
       e.preventDefault();
     };
   
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip protection for search-related elements
+      if (isSearchElement(e.target as Node)) {
+        return;
+      }
+      
       // Always prevent developer tools shortcuts
       if (e.keyCode === 123) { // F12
         e.preventDefault();
@@ -204,6 +225,11 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     
     // Prevent selection of text
     const handleSelection = (e: Event) => {
+      // Skip protection for search-related elements
+      if (isSearchElement(e.target as Node)) {
+        return;
+      }
+      
       if (!hasAccess || !contentRef.current?.contains(e.target as Node)) {
         window.getSelection()?.removeAllRanges();
       }
@@ -216,28 +242,6 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
       }
     };
     
-    // Detect screen capture attempts (modern browsers)
-    const detectScreenCapture = async () => {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
-          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-          if (stream) {
-            toast({
-              title: "Compartilhamento de tela detectado",
-              description: "A captura de tela deste conteúdo não é permitida",
-              variant: "destructive",
-            });
-            
-            // Stop all tracks to prevent screen sharing
-            stream.getTracks().forEach(track => track.stop());
-          }
-        }
-      } catch (err) {
-        // User denied screen share permission or other error
-        console.log("Screen capture detection error or user denied permission");
-      }
-    };
-  
     document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("copy", handleCopy);
     document.addEventListener("cut", handleCopy);
@@ -246,11 +250,6 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     document.addEventListener("mouseup", handleSelection);
     document.addEventListener("selectionchange", handleSelection);
     window.addEventListener("beforeprint", handleBeforePrint);
-    
-    // Only add screen capture detection if user doesn't have access
-    if (!hasAccess) {
-      detectScreenCapture();
-    }
   
     return () => {
       document.removeEventListener("contextmenu", handleContextMenu);
