@@ -695,8 +695,46 @@ export default function ProfilePage() {
                       })}
                     </div>
                   ) : (
-                    <div className="p-4 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded">
-                      Sem nenhum plano ativo, por favor efetue o pagamento.
+                    // Replace the "no membership" message with more detailed instructions
+                    <div className="p-6 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg space-y-4">
+                      <h3 className="font-semibold text-lg flex items-center">
+                        <span className="mr-2">Sem plano ativo</span>
+                      </h3>
+                      
+                      <div className="space-y-3">
+                        <p>
+                          Para acessar todo o conteúdo da plataforma, é necessário adquirir um plano:
+                        </p>
+                        
+                        <div className="p-4 bg-white rounded border border-yellow-200">
+                          <p className="font-medium">Preço do plano mensal: <span className="text-primary">2.500,00 kz</span></p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="font-medium">Instruções de pagamento:</p>
+                          <ol className="list-decimal list-inside space-y-2">
+                            <li>Faça a transferência para as nossas coordenadas em <a target="_blank" href="./cadastramento" className="text-blue-600 hover:underline font-semibold">Cadastramento</a></li>
+                            <li>Tire uma captura de tela do comprovante de pagamento</li>
+                            <li>Envie o comprovante para o nosso WhatsApp <a 
+                              href="https://wa.me/244940418442" 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-blue-600 hover:underline font-semibold">
+                              +244 940 418 442
+                            </a></li>
+                            <li>Seu plano será ativado após a validação do pagamento</li>
+                          </ol>
+                        </div>
+
+                        <div className="mt-4 flex items-center bg-blue-50 p-3 rounded-lg border border-blue-200">
+                          <div className="text-blue-500 mr-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                          </div>
+                          <p className="text-blue-700 text-sm">
+                            <span className="font-medium">Em breve:</span> Pagamento direto por Multicaixa Express para maior comodidade.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </CardContent>
