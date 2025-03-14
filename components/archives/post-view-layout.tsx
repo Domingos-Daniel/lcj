@@ -150,12 +150,15 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     const isSearchElement = (element: Node | null): boolean => {
       if (!element) return false;
       
+      // Check if element is an Element type first (not a text node or comment)
+      if (!(element instanceof Element)) return false;
+      
       // Allow search modal and inputs
       const isSearchInput = 
-        (element as HTMLElement).tagName === 'INPUT' || 
-        (element as HTMLElement).classList?.contains('search-modal') ||
-        (element as HTMLElement).closest('[role="dialog"]') !== null ||
-        (element as HTMLElement).closest('.search-modal') !== null;
+        element.tagName === 'INPUT' || 
+        element.classList?.contains('search-modal') ||
+        element.closest('[role="dialog"]') !== null ||
+        element.closest('.search-modal') !== null;
       
       return isSearchInput;
     };

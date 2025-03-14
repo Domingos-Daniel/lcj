@@ -8,6 +8,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
@@ -102,9 +103,18 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="top" className="w-full sm:max-w-xl p-0 mx-auto mt-16 search-modal">
+      <SheetContent 
+        side="top" 
+        className="w-full sm:max-w-xl p-0 mx-auto mt-16 search-modal"
+        role="dialog"
+        aria-labelledby="search-title"
+        aria-describedby="search-description"
+      >
         <SheetHeader className="sr-only">
-          <SheetTitle>Pesquisar conteúdo</SheetTitle>
+          <SheetTitle id="search-title">Pesquisar conteúdo</SheetTitle>
+          <SheetDescription id="search-description">
+            Digite para pesquisar artigos, tutoriais e outros conteúdos
+          </SheetDescription>
         </SheetHeader>
         
         <div className="rounded-lg border shadow-lg bg-background">
@@ -118,18 +128,24 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
               className="h-11 w-full bg-transparent px-1 py-3 text-sm outline-none placeholder:text-muted-foreground search-input"
               autoComplete="off"
               aria-label="Campo de pesquisa"
+              role="searchbox"
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
                 className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+                aria-label="Limpar pesquisa"
               >
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
             )}
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto p-2">
+          <div 
+            className="max-h-[60vh] overflow-y-auto p-2"
+            role="listbox"
+            aria-live="polite"
+          >
             {query.trim().length < 2 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 Digite pelo menos 2 caracteres para pesquisar
@@ -137,6 +153,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             ) : isLoading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="sr-only">Buscando resultados...</span>
               </div>
             ) : results.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
@@ -148,7 +165,8 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
                   key={item.id}
                   onClick={() => handleSelectItem(item)}
                   className="cursor-pointer rounded-md px-3 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 mb-1"
-                  role="button"
+                  role="option"
+                  aria-selected="false"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
