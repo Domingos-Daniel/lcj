@@ -61,6 +61,43 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     fetchMembership();
   }, [user]);
 
+  const [viewCount, setViewCount] = useState(post.views || 0);
+
+  useEffect(() => {
+    async function incrementViews() {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/increment-views`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ post_id: post.id }),
+          }
+        );
+  
+        const data = await response.json();
+        //console.log("✅ Views atualizadas:", data);
+        
+        // Update the view count in UI if the API returns the new count
+        if (data.views) {
+          setViewCount(data.views);
+        } else {
+          // If the API doesn't return the new count, increment locally
+          setViewCount(prev => prev + 1);
+        }
+      } catch (error) {
+        console.error("❌ Erro ao incrementar views:", error);
+      }
+    }
+  
+    if (post.id) {
+      incrementViews();
+    }
+  }, [post.id]);
+  
+
   // Access is granted only if the user is logged in and the membership matches:
   // arm_plan_id === "4" or membership name === "Plano Mensal"
   const hasAccess = Boolean(
@@ -319,7 +356,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
               )}
               <div className="flex items-center gap-1.5">
                 <Eye className="h-4 w-4" />
-                <span>{post.views || 0} visualizações</span>
+                <span>{viewCount} visualizações</span>
               </div>
             </div>
             
