@@ -56,7 +56,7 @@ const SlideContent = memo(({ slide, isActive }) => (
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="text-3xl md:text-5xl font-bold mb-3"
+          className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3"
         >
           {slide.title}
         </motion.h2>
@@ -64,7 +64,7 @@ const SlideContent = memo(({ slide, isActive }) => (
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="text-base md:text-lg mb-6 opacity-90 line-clamp-2"
+          className="text-sm sm:text-base md:text-lg mb-6 opacity-90 line-clamp-2"
         >
           {slide.description}
         </motion.p>
@@ -157,7 +157,7 @@ export function Carousel() {
 
   return (
     <div className={`relative mt-0 ${hasMounted ? 'animate-fade-in' : ''}`}>
-      <div className="relative w-full h-[450px] rounded-lg overflow-hidden">
+      <div className="relative w-full h-[300px] sm:h-[350px] md:h-[450px] rounded-lg overflow-hidden">
         <AnimatePresence initial={false} custom={activeIndex}>
           {slides.map((slide, index) => (
             <SlideContent
@@ -167,6 +167,20 @@ export function Carousel() {
             />
           ))}
         </AnimatePresence>
+
+        {/* Indicadores de slide para mobile */}
+        <div className="absolute bottom-20 left-0 right-0 flex justify-center space-x-2 md:hidden">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              className={`w-2 h-2 rounded-full transition-all ${
+                index === activeIndex ? "bg-primary w-4" : "bg-white/50"
+              }`}
+              onClick={() => handleThumbnailClick(index)}
+              aria-label={`Ir para slide ${index + 1}`}
+            />
+          ))}
+        </div>
 
         <div id="carousel-controls" className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
           <Button
@@ -200,11 +214,12 @@ export function Carousel() {
         </div>
       </div>
 
-      <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 flex space-x-4">
+      {/* Miniaturas - ocultas em dispositivos móveis */}
+      <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 hidden md:flex space-x-4">
         {slides.map((slide, index) => (
           <div
             key={index}
-            className={`relative w-20 h-20 cursor-pointer rounded overflow-hidden transition-transform duration-300 hover:scale-110 ${
+            className={`relative w-16 lg:w-20 h-16 lg:h-20 cursor-pointer rounded overflow-hidden transition-transform duration-300 hover:scale-110 ${
               index === activeIndex ? "ring-2 ring-primary" : ""
             }`}
             onClick={() => handleThumbnailClick(index)}
