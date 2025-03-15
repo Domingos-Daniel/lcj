@@ -10,7 +10,7 @@ async function fetchAllCategories() {
     
     // WordPress has pagination limits, so we need to fetch all pages
     while (hasMorePages) {
-      const response = await axios.get("https://lcj-educa.com/?rest_route=/wp/v2/categories", {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories`, {
         params: {
           per_page: 100, // Maximum allowed by WordPress API
           page: page

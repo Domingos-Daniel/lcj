@@ -1,8 +1,11 @@
-"use client" from 'axios';
+"use client"
+import axios from 'axios';
 import { useState, useEffect, memo } from "react";
 import { useCarousel } from "@/hooks/use-carousel";
+import fs from 'fs/promises';
+import path from 'path';
 
-const API_URL = process.env.API_URL || 'https://lcj-educa.com/rest_route=/wp/v2'
+const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || 'https://lcj-educa.com/wp-json/wp/v2'
 
 // Interface para os slides do carrossel 
 export interface CarouselSlide {
@@ -34,7 +37,7 @@ export async function getCarouselContent(): Promise<CarouselSlide[]> {
     // Aqui você substituiria pela chamada real à sua API
     const response = await axios.get(`${API_URL}/posts`, {
       params: {
-        categories: process.env.CAROUSEL_CATEGORY_ID || '1', // ID da categoria do carrossel
+        categories: process.env.NEXT_PUBLIC_CAROUSEL_CATEGORY_ID || '1', // ID da categoria do carrossel
         _embed: true,
         per_page: 5
       }
@@ -45,7 +48,7 @@ export async function getCarouselContent(): Promise<CarouselSlide[]> {
       title: post.title.rendered || '',
       description: post.excerpt.rendered || '',
       imageUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || 
-                'https://lcj-educa.com/wp-content/uploads/2024/05/placeholder.jpeg'
+                process.env.NEXT_PUBLIC_DEFAULT_IMAGE || 'https://lcj-educa.com/wp-content/uploads/2024/05/placeholder.jpeg'
     }))
 
     // Salvar no cache local
@@ -74,12 +77,12 @@ export async function getCarouselContent(): Promise<CarouselSlide[]> {
       {
         title: 'LCJ Educa',
         description: 'Laboratório de Comunicação e Jornalismo',
-        imageUrl: 'https://lcj-educa.com/wp-content/uploads/2024/05/placeholder.jpeg'
+        imageUrl: process.env.NEXT_PUBLIC_DEFAULT_IMAGE || 'https://lcj-educa.com/wp-content/uploads/2024/05/placeholder.jpeg'
       },
       {
         title: 'Conteúdos Educacionais',
         description: 'Recursos e materiais para estudantes e professores',
-        imageUrl: 'https://lcj-educa.com/wp-content/uploads/2024/05/placeholder.jpeg'
+        imageUrl: process.env.NEXT_PUBLIC_DEFAULT_IMAGE || 'https://lcj-educa.com/wp-content/uploads/2024/05/placeholder.jpeg'
       }
     ]
   }

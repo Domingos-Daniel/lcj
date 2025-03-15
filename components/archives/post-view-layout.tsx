@@ -44,7 +44,9 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
         try {
           // Replace with your actual API key and endpoint as needed
           const apiKey = process.env.NEXT_PUBLIC_ARMEMBER_KEY;
-          const response = await fetch(`https://lcj-educa.com/?rest_route=/armember/v1/arm_member_memberships&arm_api_key=${apiKey}&arm_user_id=${user.id}`);
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/armember/v1/arm_member_memberships&arm_api_key=${apiKey}&arm_user_id=${user.id}`
+          );
           const data = await response.json();
           if (data.status === 1 && data.response?.result?.memberships?.length > 0) {
             const membershipData = data.response.result.memberships[0];
@@ -425,7 +427,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
             { label: "Início", href: "/" },
             { label: "Arquivos", href: "/arquivos" },
             { label: post.category?.name || "Categoria", href: `/arquivos/${categorySlug}` },
-            { label: post.title, href: "#", current: true }
+            { label: post.title, href: "#" },
           ]}
         />
         

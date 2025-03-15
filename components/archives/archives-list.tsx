@@ -58,7 +58,7 @@ interface ArchivesListProps {
   view: "grid" | "list"
 }
 
-const DEFAULT_IMAGE = "https://lcj-educa.com/wp-content/uploads/2025/02/legislacion-ii.png"
+const DEFAULT_IMAGE = process.env.NEXT_PUBLIC_DEFAULT_IMAGE
 
 // New interface for WordPress categories
 interface WordPressCategory {
@@ -108,7 +108,7 @@ export function ArchivesList({ archives, isLoading, view = "grid" }: ArchivesLis
         // Fallback to direct WordPress API call
         try {
           console.log('⚠️ Trying fallback to direct WordPress API...');
-          const wpResponse = await fetch('https://lcj-educa.com/?rest_route=/wp/v2/categories?per_page=100');
+          const wpResponse = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories?per_page=100`);
           const wpCategories = await wpResponse.json();
           
           const fallbackMap: Record<string, WordPressCategory> = {};

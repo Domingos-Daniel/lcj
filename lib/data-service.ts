@@ -982,11 +982,11 @@ async function fetchAllCategoryIds() {
     
     // WordPress has pagination limits, so we need to fetch all pages
     while (hasMorePages) {
-      const response = await axios.get("https://lcj-educa.com/?rest_route=/wp/v2/categories", {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories`, {
         params: {
-          per_page: 100, // Maximum allowed by WordPress API
+          per_page: 100,
           page: page,
-          _fields: 'id,name,parent,slug,count' // Get only what we need
+          _fields: 'id,name,parent,slug,count'
         }
       });
       
@@ -1415,7 +1415,7 @@ async function fetchAllPostsFromAPI() {
   while (keepFetching) {
     try {
       console.log(`📄 Buscando página ${currentPage}...`);
-      const response = await axios.get('https://lcj-educa.com/?rest_route=/wp/v2/posts', {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts`, {
         params: {
           per_page: perPage,
           page: currentPage,
@@ -1520,7 +1520,7 @@ export async function updateDatabaseIfChanged(): Promise<boolean> {
       // Buscar todas as categorias primeiro
       let categories;
       try {
-        const categoryResponse = await axios.get('https://lcj-educa.com/?rest_route=/wp/v2/categories', {
+        const categoryResponse = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories`, {
           params: { per_page: 100 }
         });
         categories = categoryResponse.data;
@@ -1809,7 +1809,7 @@ export async function getAllCategories() {
     
     // WordPress has pagination, so we need to fetch all pages
     while (hasMorePages) {
-      const response = await axios.get("https://lcj-educa.com/?rest_route=/wp/v2/categories", {
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories`, {
         params: {
           per_page: 100, // Maximum allowed by WP API
           page: page,
@@ -2008,15 +2008,14 @@ export async function getPostById(postId: string) {
       
       // Se parece ser um slug (não é somente número)
       if (isNaN(Number(postId)) || postId.includes('-')) {
-        response = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts`, {
+        response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts`, {
           params: {
             slug: postId
           }
         });
       } else {
         // Tente pelo ID
-        response = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts/${postId}`);
-      }
+        response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts/${postId}`);      }
       
       if (response.data) {
         const apiPost = Array.isArray(response.data) ? response.data[0] : response.data;
@@ -2029,7 +2028,7 @@ export async function getPostById(postId: string) {
           if (apiPost.categories && apiPost.categories.length > 0) {
             try {
               const categoryId = apiPost.categories[0];
-              const categoryResponse = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/categories/${categoryId}`);
+              const categoryResponse = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories/${categoryId}`);
               if (categoryResponse.data && categoryResponse.data.id) {
                 category = {
                   id: categoryResponse.data.id,

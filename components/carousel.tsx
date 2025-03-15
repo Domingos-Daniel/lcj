@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Play, Pause } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const DEFAULT_IMAGE = "https://lcj-educa.com/wp-content/uploads/2025/02/legislacion-ii.png";
+const DEFAULT_IMAGE = process.env.NEXT_PUBLIC_DEFAULT_IMAGE;
 
 interface Slide {
   title: string;

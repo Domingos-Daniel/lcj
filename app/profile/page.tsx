@@ -55,10 +55,14 @@ function getPasswordStrength(password: string): { strength: number; feedback: st
   return { strength, feedback };
 }
 
+// Move environment variables to the top for clarity
 const ARMemberAPIKey = process.env.NEXT_PUBLIC_ARMEMBER_KEY;
+const WORDPRESS_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL;
+
 async function fetchARMemberData(endpoint: string, userId: string, params: Record<string, string> = {}) {
   try {
-    const baseUrl = new URL(`https://lcj-educa.com/`);
+    // Use environment variable for base URL
+    const baseUrl = new URL(`${WORDPRESS_URL}/`);
     baseUrl.searchParams.append("rest_route", `/armember/v1/${endpoint}`);
     baseUrl.searchParams.append("arm_api_key", ARMemberAPIKey || "");
     baseUrl.searchParams.append("arm_user_id", userId);
@@ -238,9 +242,9 @@ export default function ProfilePage() {
         throw new Error("Token de autenticação não encontrado");
       }
 
-      // Usar token como parâmetro da URL
+      // Use environment variable for WordPress URL
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/lcj/v1/user/update&token=${encodeURIComponent(token)}`,
+        `${WORDPRESS_URL}/?rest_route=/lcj/v1/user/update&token=${encodeURIComponent(token)}`,
         {
           method: "POST",
           headers: {
