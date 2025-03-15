@@ -8,45 +8,43 @@ interface Post {
 }
 
 interface PostResponse {
-  id: number
+  id: number;
   title: {
-    rendered: string
-  }
+    rendered: string;
+  };
   excerpt: {
-    rendered: string
-  }
-  date: string
-  date_gmt: string
-  type: string
+    rendered: string;
+  };
+  date: string;
+  date_gmt: string;
+  type: string;
   meta?: {
-    downloads?: number
-    views?: number
-    file_url?: string
-  }
+    downloads?: number;
+    views?: number;
+    file_url?: string;
+  };
   _embedded?: {
     'wp:featuredmedia'?: Array<{
-      source_url: string
-    }>
-  }
-  link: string
+      source_url: string;
+    }>;
+  };
+  link: string;
 }
 
 interface CategoryResponse {
-  id: number
-  name: string
-  description: string
+  id: number;
+  name: string;
+  description: string;
 }
 
 export async function fetchPosts(): Promise<Post[]> {
   try {
-    const response = await axios.get('https://lcj-educa.com/?rest_route=/wp/v2/posts', {
+    const response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts`, {
       params: {
         categories: 21,
         _embed: true, // Ensure embedded data is included
       },
     });
-
-    //console.log('API response:', response.data); // Log the API response
 
     return response.data.map((post: any) => ({
       title: post.title.rendered,
@@ -61,13 +59,13 @@ export async function fetchPosts(): Promise<Post[]> {
 }
 
 export async function fetchCategoryPosts(categoryId: number, options: {
-  page: number
-  search: string
-  type: string
-  sortBy: string
+  page: number;
+  search: string;
+  type: string;
+  sortBy: string;
 }) {
   try {
-    const response = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts`, {
+    const response = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts`, {
       params: {
         categories: categoryId,
         page: options.page,
@@ -75,7 +73,7 @@ export async function fetchCategoryPosts(categoryId: number, options: {
         per_page: 10,
         _embed: true,
         orderby: options.sortBy === 'recent' ? 'date' : 'title',
-        order: options.sortBy === 'recent' ? 'desc' : 'asc'
+        order: options.sortBy === 'recent' ? 'desc' : 'asc',
       },
     });
 
@@ -91,23 +89,22 @@ export async function fetchCategoryPosts(categoryId: number, options: {
       views: Number(post.meta?.views) || 0,
       file_url: post.meta?.file_url || post.link || '',
       category: categoryId,
-      featured_image: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || null
+      featured_image: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || null,
     }));
 
     // Fetch category details
-    const categoryResponse = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/categories/${categoryId}`);
+    const categoryResponse = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories/${categoryId}`);
     const category = {
       id: categoryResponse.data.id,
       name: categoryResponse.data.name,
-      description: categoryResponse.data.description
+      description: categoryResponse.data.description,
     };
 
     return {
       posts,
       totalPages,
-      category
+      category,
     };
-
   } catch (error) {
     console.error('Error fetching category posts:', error);
     throw new Error('Failed to fetch category posts');
@@ -117,49 +114,44 @@ export async function fetchCategoryPosts(categoryId: number, options: {
 // Função para buscar todos os posts de uma categoria sem paginação
 export async function fetchAllCategoryPosts(categoryId: number) {
   try {
-    //console.log('Iniciando fetchAllCategoryPosts para categoria:', categoryId);
-    
     // Primeiro, vamos buscar a primeira página para obter o número total de páginas
-    const firstPageResponse = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts`, {
+    const firstPageResponse = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts`, {
       params: {
         categories: categoryId,
         page: 1,
         per_page: 100, // Use um valor maior para reduzir o número de chamadas
-        _embed: true
+        _embed: true,
       },
     });
-    
+
     const totalPages = Number(firstPageResponse.headers['x-wp-totalpages']) || 1;
-    //console.log(`Total de páginas: ${totalPages}`);
-    
+
     let allPosts = [...firstPageResponse.data];
-    
+
     // Se houver mais páginas, busque-as
     if (totalPages > 1) {
       const remainingPagePromises = [];
-      
+
       for (let page = 2; page <= totalPages; page++) {
         remainingPagePromises.push(
-          axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/posts`, {
+          axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/posts`, {
             params: {
               categories: categoryId,
               page: page,
               per_page: 100,
-              _embed: true
+              _embed: true,
             },
           })
         );
       }
-      
+
       const remainingResponses = await Promise.all(remainingPagePromises);
-      
+
       for (const response of remainingResponses) {
         allPosts = [...allPosts, ...response.data];
       }
     }
-    
-    //console.log(`Total de posts obtidos: ${allPosts.length}`);
-    
+
     // Transforma os dados
     const posts = allPosts.map((post: any) => ({
       id: post.id,
@@ -172,23 +164,22 @@ export async function fetchAllCategoryPosts(categoryId: number) {
       views: Number(post.meta?.views) || 0,
       file_url: post.meta?.file_url || post.link || '',
       category: categoryId,
-      featured_image: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || null
+      featured_image: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || null,
     }));
 
     // Busca os detalhes da categoria
-    const categoryResponse = await axios.get(`https://lcj-educa.com/?rest_route=/wp/v2/categories/${categoryId}`);
+    const categoryResponse = await axios.get(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/?rest_route=/wp/v2/categories/${categoryId}`);
     const category = {
       id: categoryResponse.data.id,
       name: categoryResponse.data.name,
-      description: categoryResponse.data.description
+      description: categoryResponse.data.description,
     };
 
     return {
       posts,
       category,
-      totalPosts: posts.length
+      totalPosts: posts.length,
     };
-    
   } catch (error) {
     console.error('Erro ao buscar todos os posts da categoria:', error);
     throw new Error('Falha ao buscar todos os posts da categoria');
