@@ -26,18 +26,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/materias-de-direito" className="text-sm text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
+                <Link href="/arquivos/22" className="text-sm text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
                   Matérias de Direito
                 </Link>
               </li>
               <li>
-                <Link href="/pecas-processuais" className="text-sm text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
+                <Link href="/arquivos/27" className="text-sm text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
                   Peças Processuais
-                </Link>
-              </li>
-              <li>
-                <Link href="/blog" className="text-sm text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors">
-                  Blog Jurídico
                 </Link>
               </li>
             </ul>
