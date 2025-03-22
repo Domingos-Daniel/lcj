@@ -287,7 +287,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
               right: 0,
             }}
           >
-            {user.email} • {new Date().toLocaleDateString()} • {user.id}
+            Conteudo exclusivo do LCJ
           </div>
         ))}
       </div>
@@ -494,10 +494,10 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
             <Separator className="mt-2" />
           </div>
           
-          {/* Conteúdo principal do artigo - destacado e sem distrações */}
+          {/* Conteúdo principal do artigo */}
           <article
             className={cn(
-              "prose prose-lg dark:prose-invert max-w-none py-10 px-4 md:px-20 border-2 rounded-lg relative",
+              "relative py-10 px-4 md:px-8 border rounded-lg",
               !hasAccess && "filter blur-sm pointer-events-none"
             )}
             ref={contentRef}
@@ -505,20 +505,8 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
             {addDynamicWatermark()}
             <div 
               className="formatted-content"
-              dangerouslySetInnerHTML={{ __html: post.content }} 
+              dangerouslySetInnerHTML={{ __html: cleanAndFormatHtml(post.content) }} 
             />
-            
-            <Separator className="mt-2" />
-            
-            
-            {/* Seção somente impressão */}
-            <div className="hidden print:block mt-6 pt-6 border-t">
-              <p className="text-sm text-muted-foreground">
-                Este documento foi impresso de {typeof window !== 'undefined' ? window.location.origin : ''} em {format(new Date(), "dd/MM/yyyy 'às' HH:mm")}.
-                <br />
-                Documento protegido. Uso autorizado apenas para {user?.email || "usuários autorizados"}.
-              </p>
-            </div>
           </article>
           
           {/* Feedback e interações - simplificado */}
@@ -654,4 +642,25 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
       )}
     </div>
   )
+}
+
+function cleanAndFormatHtml(html: string) {
+  if (!html) return '';
+  
+  // Remove empty paragraphs
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  
+  // Fix multiple line breaks
+  html = html.replace(/(\r\n|\n|\r){2,}/g, '\n\n');
+  
+  // Fix spacing around headings
+  html = html.replace(/(<\/h[1-6]>)(\s*)(<h[1-6])/g, '$1\n\n$3');
+  
+  // Fix spacing around lists
+  html = html.replace(/(<\/[uo]l>)(\s*)(<[uo]l>)/g, '$1\n$3');
+  
+  // Fix spacing around blockquotes
+  html = html.replace(/(<\/blockquote>)(\s*)(<blockquote>)/g, '$1\n\n$3');
+  
+  return html;
 }
