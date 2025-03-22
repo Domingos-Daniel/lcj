@@ -488,28 +488,7 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
             </div>
             
             {/* Informações básicas e essenciais */}
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" />
-                <time dateTime={post.createdAt}>
-                  {post.createdAt && format(new Date(post.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </time>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
-                <span>{post.readingTime || "5 min de leitura"}</span>
-              </div>
-              {post.author && (
-                <div className="flex items-center gap-1.5">
-                  <User className="h-4 w-4" />
-                  <span>{post.author}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <Eye className="h-4 w-4" />
-                <span>{viewCount} visualizações</span>
-              </div>
-            </div>
+            
             
             
             <Separator className="mt-2" />
