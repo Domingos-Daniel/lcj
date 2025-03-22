@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { 
   Check, AlertCircle, Phone, Mail, CreditCard, MessageSquare,
   User, Lock, AtSign, Calendar, Smartphone, ShieldCheck, BadgeCheck,
-  Copy, CheckCircle
+  Copy, CheckCircle, ChevronDown
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
@@ -19,6 +19,10 @@ import { motion } from "framer-motion";
 import { signIn, useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import { PasswordInput } from "@/components/password-input";
+
+// Add smooth scroll behavior to html
+// Add this at the top of your CSS or globals.css
+
 
 // Modify plans to only show the paid plan
 const plans = [{
@@ -191,6 +195,16 @@ export default function CadastramentoPage() {
             <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
               Complete seu cadastro e faça o pagamento para acessar todo o conteúdo jurídico da plataforma
             </p>
+            <Button 
+              size="lg" 
+              className="animate-bounce"
+              asChild
+            >
+              <a href="#registration-form">
+                Fazer Cadastro
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </a>
+            </Button>
           </div>
         </section>
 
@@ -316,8 +330,8 @@ export default function CadastramentoPage() {
           </div>
         </section>
 
-        {/* Registration Form Section - Mantido como está */}
-        <section className="py-16 bg-muted">
+        {/* Registration Form Section - Add id here */}
+        <section id="registration-form" className="py-16 bg-muted">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-2xl">
               {status === "authenticated" ? (
