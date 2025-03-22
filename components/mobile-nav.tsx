@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Menu, Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getNavigationLinks } from "@/lib/navigation"
-import { useRouter } from "next/navigation"
-import { useState, useCallback } from "react"
+import { useState } from "react"
 import { SearchModal } from "./search-modal"
 
 interface MobileNavProps {
@@ -15,22 +14,12 @@ interface MobileNavProps {
 
 export function MobileNav({ currentPath }: MobileNavProps) {
   const navLinks = getNavigationLinks()
-  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  
-  // Função otimizada para navegação
-  const handleNavigation = useCallback((href: string) => {
-    setIsOpen(false) // Feche o menu imediatamente
-    setTimeout(() => {
-      router.push(href)
-    }, 0)
-  }, [router])
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   
   return (
     <>
       <div className="md:hidden flex items-center space-x-2">
-        {/* Add search button */}
         <Button 
           variant="ghost" 
           size="icon" 
@@ -41,14 +30,13 @@ export function MobileNav({ currentPath }: MobileNavProps) {
           <span className="sr-only">Search</span>
         </Button>
         
-        {/* Your existing sheet trigger */}
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button 
               id="mobile-menu-button"
               variant="ghost" 
               size="icon" 
-              className="md:hidden focus:outline-none active:scale-95 transition-transform"
+              className="md:hidden focus:outline-none"
             >
               <Menu className="h-5 w-5" />
               <span className="sr-only">Menu</span>
@@ -57,25 +45,23 @@ export function MobileNav({ currentPath }: MobileNavProps) {
           <SheetContent 
             side="left" 
             className="w-[300px] sm:w-[400px] overflow-y-auto"
-            style={{"--sheet-animation-duration": "150ms"} as React.CSSProperties}
           >
             <nav id="mobile-navigation" className="mt-6 flex flex-col gap-4">
               {navLinks.map((section) => (
                 <div key={section.title} className="flex flex-col gap-2">
                   {section.href && !section.items ? (
-                    // Link direto com handler otimizado
-                    <button
-                      onClick={() => handleNavigation(section.href!)}
+                    <a
+                      href={section.href}
                       id={`dropdown-menu-${section.title.toLowerCase().replace(/\s+/g, '-')}`}
                       className={cn(
-                        "font-medium hover:text-primary text-left focus:outline-none active:scale-95 transition-transform",
+                        "font-medium hover:text-primary text-left",
                         currentPath === section.href && "text-primary"
                       )}
+                      onClick={() => setIsOpen(false)}
                     >
                       {section.title}
-                    </button>
+                    </a>
                   ) : (
-                    // Título da seção para dropdowns
                     <div id={`mobile-${section.title.toLowerCase().replace(/\s+/g, '-')}`} className="font-medium">
                       {section.title}
                     </div>
@@ -87,16 +73,17 @@ export function MobileNav({ currentPath }: MobileNavProps) {
                       className="flex flex-col gap-1 pl-4"
                     >
                       {section.items.map((item) => (
-                        <button
+                        <a
                           key={item.href}
-                          onClick={() => handleNavigation(item.href)}
+                          href={item.href}
                           className={cn(
-                            "text-muted-foreground hover:text-primary text-left focus:outline-none active:scale-95 transition-transform",
+                            "text-muted-foreground hover:text-primary text-left",
                             currentPath === item.href && "text-primary font-medium"
                           )}
+                          onClick={() => setIsOpen(false)}
                         >
                           {item.title}
-                        </button>
+                        </a>
                       ))}
                     </div>
                   )}
@@ -107,7 +94,6 @@ export function MobileNav({ currentPath }: MobileNavProps) {
         </Sheet>
       </div>
       
-      {/* Add search modal */}
       <SearchModal open={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </>
   )
