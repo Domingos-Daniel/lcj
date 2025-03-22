@@ -186,7 +186,7 @@ export default function CadastramentoPage() {
         <section className="bg-gradient-to-b from-primary/10 to-background pt-20 pb-16">
           <div className="container mx-auto px-4 text-center">
             <h1 className="mb-4 text-3xl sm:text-4xl font-bold tracking-tight md:text-5xl">
-              Cadastre-se para Acesso Premium
+              Cadastre-se para Acesso Mensal
             </h1>
             <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
               Complete seu cadastro e faça o pagamento para acessar todo o conteúdo jurídico da plataforma
@@ -237,7 +237,7 @@ export default function CadastramentoPage() {
                 <CardHeader className="bg-primary/5 border-b border-primary/10">
                   <CardTitle className="flex items-center justify-center text-2xl">
                     <ShieldCheck className="h-6 w-6 text-primary mr-2" />
-                    Assinatura Premium
+                    Assinatura Mensal
                   </CardTitle>
                   <div className="mt-4 text-center">
                     <div className="text-4xl font-bold">2.500 Kzs</div>
