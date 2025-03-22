@@ -271,29 +271,6 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
     };
   }, [hasAccess, contentRef]);
   
-  // Add dynamic watermark to the content when user has access but needs anti-screenshot measures
-  const addDynamicWatermark = () => {
-    if (!hasAccess || !user) return null;
-    
-    return (
-      <div className="absolute inset-0 pointer-events-none select-none">
-        {[...Array(10)].map((_, i) => (
-          <div 
-            key={i}
-            className="absolute text-black/5 dark:text-white/5 text-lg font-bold whitespace-nowrap transform -rotate-45"
-            style={{
-              top: `${10 + (i * 20)}%`,
-              left: `-5%`,
-              right: 0,
-            }}
-          >
-            Conteudo exclusivo do LCJ
-          </div>
-        ))}
-      </div>
-    );
-  };
-  
   // Add style tag to disable selection and printing at CSS level
   useEffect(() => {
     if (!hasAccess) {
@@ -502,11 +479,27 @@ export function PostViewLayout({ post, categoryId, categorySlug = categoryId }: 
             )}
             ref={contentRef}
           >
-            {addDynamicWatermark()}
-            <div 
-              className="formatted-content"
-              dangerouslySetInnerHTML={{ __html: cleanAndFormatHtml(post.content) }} 
-            />
+            <div className="formatted-content relative overflow-hidden">
+              {/* Watermark container */}
+              {hasAccess && user && (
+                <div className="absolute inset-0 pointer-events-none select-none">
+                  {[...Array(10)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className="absolute text-black/5 dark:text-white/5 text-lg font-bold whitespace-nowrap transform -rotate-45"
+                      style={{
+                        top: `${10 + (i * 20)}%`,
+                        left: `-5%`,
+                        right: 0,
+                      }}
+                    >
+                      Conteudo exclusivo do LCJ
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div dangerouslySetInnerHTML={{ __html: cleanAndFormatHtml(post.content) }} />
+            </div>
           </article>
           
           {/* Feedback e interações - simplificado */}
